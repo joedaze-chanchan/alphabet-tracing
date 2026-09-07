@@ -5,17 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#f6f3ea" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>알파벳 따라쓰기</title>
+  <title>영어 배우기</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- 홈 화면 -->
-  <section id="home" class="screen">
+  <!-- 대문: 메뉴 선택 -->
+  <section id="main" class="screen">
     <header class="home-header">
-      <h1>알파벳 따라쓰기</h1>
-      <p class="sub">글자를 고르고 획순대로 따라 써 보세요</p>
+      <h1>영어 배우기</h1>
+      <p class="sub">무엇을 연습할까요?</p>
     </header>
-    <div id="letter-grid" class="letter-grid"></div>
+    <nav class="menu">
+      <button class="menu-btn" type="button" data-go="home">
+        <span class="menu-num">1</span>
+        <span class="menu-text"><b>알파벳 따라쓰기</b><small>A부터 Z까지 획순대로 써요</small></span>
+        <span class="menu-badge" id="menu-alpha-progress"></span>
+      </button>
+      <button class="menu-btn" type="button" data-go="words">
+        <span class="menu-num">2</span>
+        <span class="menu-text"><b>단어 따라쓰기</b><small>글자를 이어서 단어를 써요</small></span>
+        <span class="menu-badge soon">준비 중</span>
+      </button>
+      <button class="menu-btn" type="button" data-go="games">
+        <span class="menu-num">3</span>
+        <span class="menu-text"><b>게임하기</b><small>배운 글자로 놀아요</small></span>
+        <span class="menu-badge soon">준비 중</span>
+      </button>
+    </nav>
     <footer class="home-footer">
       <button id="settings-btn" class="text-btn" type="button">따라 쓰기 횟수: <b id="settings-repeat">3</b>번 · 변경</button>
       <button id="reset-btn" class="text-btn" type="button">기록 지우기</button>
@@ -29,6 +45,43 @@
         <div id="repeat-options" class="repeat-options"></div>
         <button id="settings-save" class="btn primary" type="button">시작하기</button>
       </div>
+    </div>
+  </section>
+
+  <!-- 알파벳 고르기 -->
+  <section id="home" class="screen" hidden>
+    <header class="sub-header">
+      <button class="icon-btn" type="button" data-go="main" aria-label="대문으로">‹</button>
+      <h1>알파벳 따라쓰기</h1>
+      <span class="icon-spacer"></span>
+    </header>
+    <p class="sub center">글자를 고르고 획순대로 따라 써 보세요</p>
+    <div id="letter-grid" class="letter-grid"></div>
+  </section>
+
+  <!-- 단어 따라쓰기 (준비 중) -->
+  <section id="words" class="screen" hidden>
+    <header class="sub-header">
+      <button class="icon-btn" type="button" data-go="main" aria-label="대문으로">‹</button>
+      <h1>단어 따라쓰기</h1>
+      <span class="icon-spacer"></span>
+    </header>
+    <div class="soon-box">
+      <div class="soon-icon">✏️</div>
+      <p>준비 중이에요.<br />배운 글자를 이어서 단어를 쓰는 연습이 들어올 자리예요.</p>
+    </div>
+  </section>
+
+  <!-- 게임하기 (준비 중) -->
+  <section id="games" class="screen" hidden>
+    <header class="sub-header">
+      <button class="icon-btn" type="button" data-go="main" aria-label="대문으로">‹</button>
+      <h1>게임하기</h1>
+      <span class="icon-spacer"></span>
+    </header>
+    <div class="soon-box">
+      <div class="soon-icon">🎮</div>
+      <p>준비 중이에요.<br />배운 글자로 노는 게임이 들어올 자리예요.</p>
     </div>
   </section>
 

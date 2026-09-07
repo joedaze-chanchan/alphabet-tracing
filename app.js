@@ -32,7 +32,11 @@ const ROUND_PAUSE = 1100; // 한 번 다 쓴 뒤 다음 회차로 넘어가기 �
 
 const $ = (id) => document.getElementById(id);
 const els = {
+  main: $("main"),
   home: $("home"),
+  words: $("words"),
+  games: $("games"),
+  menuAlphaProgress: $("menu-alpha-progress"),
   practice: $("practice"),
   grid: $("letter-grid"),
   resetBtn: $("reset-btn"),
@@ -104,7 +108,7 @@ function saveSettings() {
   settings = { ...DEFAULT_SETTINGS, ...(settings || {}), repeat: pendingRepeat };
   settingsStore.save(settings);
   els.settings.hidden = true;
-  renderHome();
+  renderMain();
 }
 
 // ---------- 발음 ----------
@@ -159,8 +163,26 @@ function renderRound() {
 
 // ---------- 홈 ----------
 
-function renderHome() {
+// 화면 전환: main(대문) | home(알파벳 고르기) | words | games | practice
+function showScreen(name) {
+  for (const key of ["main", "home", "words", "games", "practice"]) els[key].hidden = key !== name;
+}
+
+function renderMain() {
   els.settingsRepeat.textContent = String(settings ? settings.repeat : DEFAULT_SETTINGS.repeat);
+  const done = LETTER_ORDER.filter((l) => store.get(l).completed).length;
+  els.menuAlphaProgress.textContent = done > 0 ? `★ ${done}/${LETTER_ORDER.length}` : "";
+}
+
+function showMain() {
+  cancelDemo();
+  cancelAnimationFrame(state.raf);
+  state.mode = "idle";
+  renderMain();
+  showScreen("main");
+}
+
+function renderHome() {
   els.grid.innerHTML = "";
   for (const letter of LETTER_ORDER) {
     const btn = document.createElement("button");
@@ -183,9 +205,8 @@ function showHome() {
   cancelDemo();
   cancelAnimationFrame(state.raf);
   state.mode = "idle";
-  els.practice.hidden = true;
-  els.home.hidden = false;
   renderHome();
+  showScreen("home");
 }
 
 // ---------- 연습 ----------
@@ -197,8 +218,7 @@ function openLetter(letter) {
   state.round = 1;
   resetStrokes();
   els.done.hidden = true;
-  els.home.hidden = true;
-  els.practice.hidden = false;
+  showScreen("practice");
   renderInfo(letter);
   renderRound();
   speak(letter);
@@ -540,12 +560,20 @@ els.settingsSave.addEventListener("click", saveSettings);
 els.resetBtn.addEventListener("click", () => {
   if (confirm("학습 기록을 모두 지울까요?")) {
     store.reset();
-    renderHome();
+    renderMain();
   }
 });
+for (const btn of document.querySelectorAll("[data-go]")) {
+  btn.addEventListener("click", () => {
+    const go = btn.dataset.go;
+    if (go === "home") showHome();
+    else if (go === "main") showMain();
+    else showScreen(go);
+  });
+}
 window.addEventListener("resize", () => {
   if (!els.practice.hidden) resizeCanvas();
 });
 
-renderHome();
+renderMain();
 if (!settings) openSettings(); // 첫 실행: 따라 쓰기 횟수부터 정한다
