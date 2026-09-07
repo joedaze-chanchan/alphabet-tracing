@@ -22,6 +22,7 @@ npm test
 | `app.js` | 화면 전환, 캔버스 렌더링, 시범 애니메이션, 터치 처리 |
 | `progress.js` | 학습 기록·설정(따라 쓰기 횟수) 저장 (localStorage) |
 | `tests/tracer.test.js` | 판정 엔진·획 데이터 테스트 |
+| `audio/*.mp3` | 글자별 발음 (tools/make_audio.py로 생성, edge-tts) |
 
 설계 문서: `docs/superpowers/specs/2026-09-07-alphabet-tracing-design.md`
 

@@ -109,15 +109,37 @@ function saveSettings() {
 
 // ---------- 발음 ----------
 
+// 발음: 미리 만든 mp3(audio/A.mp3 …)를 먼저 재생한다. 안드로이드 크롬의 음성 합성(Web Speech)은
+// 조용히 실패하는 일이 잦아서, mp3가 없거나 재생이 막힐 때만 음성 합성으로 대신한다.
+let audioEl = null;
+let currentUtterance = null; // 안드로이드에서 utterance가 GC되면 재생이 끊기므로 참조를 붙잡아 둔다
+
 function speak(letter) {
+  if (!audioEl) {
+    audioEl = new Audio();
+    audioEl.preload = "auto";
+  }
+  audioEl.pause();
+  audioEl.onerror = () => speakWithTTS(letter);
+  audioEl.src = `audio/${letter}.mp3`;
+  const p = audioEl.play();
+  if (p && typeof p.catch === "function") p.catch(() => speakWithTTS(letter));
+}
+
+function speakWithTTS(letter) {
   if (!("speechSynthesis" in window)) return;
   const info = LETTERS[letter];
   try {
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    if (synth.speaking || synth.pending) synth.cancel();
     const u = new SpeechSynthesisUtterance(`${letter}. ${letter}. ${info.word}.`);
     u.lang = "en-US";
-    u.rate = 0.85;
-    window.speechSynthesis.speak(u);
+    const voice = synth.getVoices().find((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
+    if (voice) u.voice = voice;
+    u.rate = 0.9;
+    currentUtterance = u;
+    // cancel() 직후의 speak()는 안드로이드 크롬에서 무시되는 경우가 있어 잠깐 뒤에 호출한다
+    setTimeout(() => synth.speak(u), 60);
   } catch {
     // 음성 미지원 브라우저는 무시
   }
