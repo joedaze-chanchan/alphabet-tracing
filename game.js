@@ -2,7 +2,8 @@
 // 한 글자씩 따라 쓰면 에너지가 찬다. 다 쓰면 레이저가 발사되어 격추. 바닥에 닿으면 목숨을 잃는다.
 
 import { TracePad } from "./pad.js";
-import { DIFFICULTY, DIFFICULTY_ORDER, LIVES, SCORE_PER_LETTER, pickTarget, speedMultiplier } from "./words.js";
+import { DIFFICULTY, DIFFICULTY_ORDER, LIVES, SCORE_PER_LETTER, MEANINGS, PHASES, makeChoices, pickTarget, speedMultiplier } from "./words.js";
+import { LETTERS, LETTER_ORDER } from "./letters.js";
 
 const LASER_MS = 380;
 const BOOM_MS = 550;
@@ -25,6 +26,10 @@ export function setupGame({ onExit, bestStore }) {
     spell: $("game-spell"),
     pad: $("pad"),
     energy: $("game-energy"),
+    write: $("game-write"),
+    quiz: $("game-quiz"),
+    quizQ: $("quiz-q"),
+    quizOpts: $("quiz-opts"),
     msg: $("game-msg"),
     over: $("game-over"),
     overTitle: $("go-title"),
@@ -102,6 +107,8 @@ export function setupGame({ onExit, bestStore }) {
       lives: LIVES,
       nextSpawnAt: 0,
       lastWord: null,
+      round: null, // { en, ko, isLetter, phase } 같은 단어를 세 번 연달아
+      quizLocked: false,
       target: null, // 선택된 비행선
       letterIndex: 0,
       laser: null, // { ship, until }
@@ -123,6 +130,7 @@ export function setupGame({ onExit, bestStore }) {
     els.menu.hidden = true;
     els.play.hidden = false;
     pad.clear();
+    showPanel("idle");
     resize();
     renderHud();
     setEnergy(0);
@@ -130,6 +138,22 @@ export function setupGame({ onExit, bestStore }) {
     setMsg("비행선을 터치해서 고르세요");
     lastTs = 0;
     startLoop();
+  }
+
+  // 새 단어(또는 글자) 하나로 3단계 순서를 시작한다
+  function newRound() {
+    const en = pickTarget(level, g.lastWord);
+    g.lastWord = en;
+    const isLetter = en.length === 1;
+    g.round = { en, ko: isLetter ? LETTERS[en].ko : MEANINGS[en], isLetter, phase: 0 };
+  }
+
+  // 4지선다 보기 목록 (정답 + 같은 종류의 오답 3개)
+  function choicesFor(round) {
+    const pool = round.isLetter
+      ? LETTER_ORDER.map((l) => ({ en: l, ko: LETTERS[l].ko }))
+      : g.d.words.map((w) => ({ en: w, ko: MEANINGS[w] }));
+    return makeChoices({ en: round.en, ko: round.ko }, pool);
   }
 
   function resize() {
@@ -156,13 +180,19 @@ export function setupGame({ onExit, bestStore }) {
 
   function spawnShip(now) {
     const { w } = skySize();
-    const word = pickTarget(level, g.lastWord);
-    g.lastWord = word;
+    if (!g.round) newRound();
+    const round = g.round;
+    const phase = PHASES[round.phase];
+    const label = phase.key === "english" ? round.ko : round.en; // 3단계는 한글이 내려온다
     const r = shipRadius();
-    const margin = r + 8 + word.length * 4;
+    const margin = r + 8 + label.length * 4;
     g.ships.push({
       id: g.nextId++,
-      word,
+      word: round.en,
+      ko: round.ko,
+      label,
+      phase: round.phase,
+      isLetter: round.isLetter,
       x: margin + Math.random() * Math.max(1, w - margin * 2),
       y: -r,
       r,
@@ -225,9 +255,11 @@ export function setupGame({ onExit, bestStore }) {
     g.ships = g.ships.filter((o) => o !== s);
     g.lives -= 1;
     g.groundFlashUntil = now + GROUND_FLASH_MS;
+    g.nextSpawnAt = now + g.d.spawnMs; // 같은 단어·같은 단계가 다시 내려온다
     if (g.target === s) {
       g.target = null;
       pad.clear();
+      showPanel("idle");
       setSpell();
       setEnergy(0);
     }
@@ -245,9 +277,66 @@ export function setupGame({ onExit, bestStore }) {
     g.target = s;
     g.letterIndex = 0;
     setEnergy(0);
-    setSpell();
-    pad.setLetter(s.word[0]);
-    setMsg(s.word.length === 1 ? `${s.word}를 써서 격추하세요` : `${s.word}를 한 글자씩 써서 격추하세요`);
+    const phase = PHASES[s.phase].key;
+    if (phase === "write") {
+      showPanel("write");
+      setSpell();
+      pad.setLetter(s.word[0]);
+      setMsg(s.word.length === 1 ? `${s.word} 글자를 써서 격추하세요` : `${s.word} 스펠링을 한 글자씩 써서 격추하세요`);
+    } else {
+      pad.clear();
+      setSpell();
+      showQuiz(s, phase);
+    }
+  }
+
+  // 4지선다: meaning = 영어 보고 한글 고르기, english = 한글 보고 영어 고르기
+  function showQuiz(s, phase) {
+    showPanel("quiz");
+    g.quizLocked = false;
+    const round = { en: s.word, ko: s.ko, isLetter: s.isLetter };
+    const choices = choicesFor(round);
+    if (phase === "meaning") {
+      els.quizQ.innerHTML = s.isLetter
+        ? `<span class="en">${s.word}</span> 어떻게 읽을까요?`
+        : `<span class="en">${s.word}</span> 뜻은?`;
+    } else {
+      els.quizQ.innerHTML = s.isLetter ? `'${s.ko}' 어느 글자일까요?` : `'${s.ko}' 영어로는?`;
+    }
+    els.quizOpts.innerHTML = "";
+    for (const c of choices) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "quiz-opt";
+      b.textContent = phase === "meaning" ? c.ko : c.en;
+      b.addEventListener("click", () => answerQuiz(s, c.en === s.word, b));
+      els.quizOpts.appendChild(b);
+    }
+    setMsg("맞는 답을 고르면 레이저가 발사돼요");
+  }
+
+  function answerQuiz(s, correct, btn) {
+    if (g.quizLocked || g.target !== s || s.state !== "alive") return;
+    if (!correct) {
+      btn.classList.add("wrong");
+      btn.disabled = true;
+      setMsg("아니에요. 다시 골라 보세요!", "bad");
+      return;
+    }
+    g.quizLocked = true;
+    btn.classList.add("right");
+    for (const el of els.quizOpts.children) el.disabled = true;
+    setEnergy(1);
+    setTimeout(() => {
+      if (g && g.target === s && s.state === "alive") fire(s);
+    }, 350);
+  }
+
+  // 아래 제어판: idle(안내만) | write(쓰기 판) | quiz(4지선다)
+  function showPanel(kind) {
+    els.write.hidden = kind === "quiz";
+    els.quiz.hidden = kind !== "quiz";
+    if (kind !== "quiz") els.quizOpts.innerHTML = "";
   }
 
   function letterDone() {
@@ -274,7 +363,14 @@ export function setupGame({ onExit, bestStore }) {
     pad.clear();
     setSpell();
     renderHud();
+    // 같은 단어의 다음 단계로. 세 단계를 다 마치면 새 단어.
+    if (g.round && g.round.phase < PHASES.length - 1) g.round.phase += 1;
+    else g.round = null;
+    g.nextSpawnAt = now + LASER_MS + g.d.spawnMs;
     setMsg(`발사! +${s.word.length * SCORE_PER_LETTER}점`, "ok");
+    setTimeout(() => {
+      if (g && !g.over && !g.target) showPanel("idle");
+    }, LASER_MS);
     setTimeout(() => {
       if (g && !g.over) setEnergy(0);
     }, LASER_MS);
@@ -700,9 +796,9 @@ export function setupGame({ onExit, bestStore }) {
     sky.arc(x, y - r * 0.82, 2, 0, Math.PI * 2);
     sky.fill();
 
-    // 글자 표시 (스티커처럼)
-    const label = s.word;
-    sky.font = `800 ${label.length > 3 ? 15 : 18}px "Helvetica Neue", Arial, sans-serif`;
+    // 글자 표시 (스티커처럼). 3단계는 한글.
+    const label = s.label;
+    sky.font = `800 ${label.length > 3 ? 15 : 18}px "Helvetica Neue", Arial, "Noto Sans KR", "Malgun Gothic", sans-serif`;
     const tw = sky.measureText(label).width + 18;
     sky.fillStyle = sel ? "#f59e0b" : "#0f172a";
     sky.strokeStyle = sel ? "#fde68a" : "#67e8f9";
@@ -715,6 +811,16 @@ export function setupGame({ onExit, bestStore }) {
     sky.textAlign = "center";
     sky.textBaseline = "middle";
     sky.fillText(label, x, y + r * 0.5 + 12);
+    // 단계 표시 (①②③): 1 뜻, 2 쓰기, 3 영어
+    const icons = ["?", "✎", "?"];
+    sky.fillStyle = ["#a855f7", "#22c55e", "#f97316"][s.phase];
+    sky.beginPath();
+    sky.arc(x + tw / 2 + 4, y + r * 0.5 + 2, 10, 0, Math.PI * 2);
+    sky.fill();
+    sky.fillStyle = "#ffffff";
+    sky.font = '800 12px "Helvetica Neue", Arial, sans-serif';
+    sky.fillText(`${s.phase + 1}`, x + tw / 2 + 4, y + r * 0.5 + 2);
+    void icons;
     sky.restore();
   }
 

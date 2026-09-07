@@ -294,3 +294,18 @@ html, body {
 .game-msg.bad { color: var(--red); }
 .go-stats { display: flex; flex-direction: column; gap: 4px; margin-bottom: 18px; font-size: 16px; color: var(--muted); }
 .go-stats div:first-child { font-size: 30px; font-weight: 700; color: var(--ink); }
+
+/* 4지선다 */
+.quiz { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 0; }
+.quiz-q { text-align: center; font-size: 20px; font-weight: 700; min-height: 30px; }
+.quiz-q .en { font-family: "Helvetica Neue", Arial, sans-serif; color: var(--blue); font-size: 26px; }
+.quiz-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.quiz-opt {
+  padding: 18px 8px; border-radius: 16px; border: 2px solid var(--line); background: var(--card);
+  color: var(--ink); font-size: 22px; font-weight: 700; -webkit-tap-highlight-color: transparent;
+  font-family: "Helvetica Neue", Arial, "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+.quiz-opt:active { transform: scale(0.97); }
+.quiz-opt.wrong { border-color: var(--red); color: var(--red); background: #fee2e2; opacity: 0.7; }
+.quiz-opt.right { border-color: var(--green); color: var(--green); background: #dcfce7; }
+.quiz-opt:disabled { pointer-events: none; }

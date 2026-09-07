@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { WORDS, DIFFICULTY, DIFFICULTY_ORDER, pickTarget, speedMultiplier, SPEED_RAMP_MAX } from "../words.js";
+import { WORDS, DIFFICULTY, DIFFICULTY_ORDER, pickTarget, speedMultiplier, SPEED_RAMP_MAX, MEANINGS, makeChoices } from "../words.js";
 import { LETTERS } from "../letters.js";
 
 test("단어는 모두 대문자이고 획 데이터가 있는 글자로만 되어 있다", () => {
@@ -18,12 +18,28 @@ test("단어 길이: 쉬움 3, 보통 4, 어려움 5", () => {
   assert.ok(WORDS.hard.every((w) => w.length === 5));
 });
 
-test("난이도는 쉬움·보통 두 단계이고 보통이 더 빠르고 비행선이 많다", () => {
+test("난이도는 쉬움·보통 두 단계, 둘 다 한 대씩, 보통이 조금 빠르다", () => {
   assert.deepEqual(DIFFICULTY_ORDER, ["easy", "medium"]);
   const [e, m] = DIFFICULTY_ORDER.map((k) => DIFFICULTY[k]);
   assert.ok(e.speed < m.speed);
-  assert.ok(e.maxShips < m.maxShips);
-  // 보통은 두 대가 동시에 나오는 대신 등장 간격은 오히려 길게 둔다 (사용자 요청: 천천히)
+  assert.equal(e.maxShips, 1);
+  assert.equal(m.maxShips, 1);
+});
+
+test("모든 단어에 한글 뜻이 있다", () => {
+  for (const list of Object.values(WORDS)) for (const w of list) assert.ok(MEANINGS[w], w);
+});
+
+test("4지선다 보기는 정답을 포함한 서로 다른 4개", () => {
+  const pool = WORDS.easy.map((en) => ({ en, ko: MEANINGS[en] }));
+  for (let i = 0; i < 50; i++) {
+    const answer = pool[i % pool.length];
+    const ch = makeChoices(answer, pool);
+    assert.equal(ch.length, 4);
+    assert.ok(ch.some((c) => c.en === answer.en));
+    assert.equal(new Set(ch.map((c) => c.en)).size, 4);
+    assert.equal(new Set(ch.map((c) => c.ko)).size, 4);
+  }
 });
 
 test("pickTarget은 난이도 목록 안에서 고르고 직전 것과 다르다", () => {
