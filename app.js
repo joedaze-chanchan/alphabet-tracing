@@ -81,6 +81,7 @@ const state = {
   demoProgress: null, // 시범 중: { index, t }
   wrongStreak: 0,
   wrongsTotal: 0,
+  replayPending: false, // 3회 연속 오답으로 시범 재생을 앞둔 상태
   round: 1, // 현재 몇 번째 따라 쓰기인지 (1부터)
   demoToken: 0,
   raf: 0,
@@ -332,7 +333,10 @@ function toLetterCoords(e) {
 let pointerId = null;
 
 function onPointerDown(e) {
-  if (state.mode !== "trace" || pointerId !== null) return;
+  if (pointerId !== null) return;
+  // 빨간 오답 표시 중에 다시 쓰기 시작하면 기다리지 않고 바로 받는다 (시범 재생 예정일 때는 제외)
+  if (state.mode === "wrong" && !state.replayPending) beginTrace();
+  if (state.mode !== "trace") return;
   e.preventDefault();
   pointerId = e.pointerId;
   try {
@@ -407,11 +411,13 @@ async function fail(reason, progress) {
   state.wrongsTotal++;
   state.liveProgress = progress;
   state.liveColor = COLORS.wrong;
+  state.replayPending = state.wrongStreak >= MAX_WRONG_STREAK;
   setHint(HINTS[reason] || HINTS.off, "bad");
   await sleep(WRONG_FLASH);
   if (state.mode !== "wrong") return;
   state.liveProgress = 0;
-  if (state.wrongStreak >= MAX_WRONG_STREAK) {
+  if (state.replayPending) {
+    state.replayPending = false;
     state.wrongStreak = 0;
     setHint(HINTS.replay, "bad");
     await sleep(600);

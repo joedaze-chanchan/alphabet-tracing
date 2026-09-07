@@ -79,7 +79,9 @@ export class TracePad {
   }
 
   pointerDown(e) {
-    if (this.mode !== "trace" || !this.enabled || this.pointerId !== null) return;
+    if (!this.enabled || !this.lt || this.pointerId !== null) return;
+    if (this.mode === "wrong") this.endWrong(); // 빨간 표시 중에 다시 쓰기 시작하면 바로 받는다
+    if (this.mode !== "trace") return;
     e.preventDefault();
     this.pointerId = e.pointerId;
     try {
@@ -187,16 +189,18 @@ export class TracePad {
     ctx.stroke();
   }
 
+  // 빨간 표시를 끝내고 같은 획을 다시 받을 준비
+  endWrong() {
+    this.mode = "trace";
+    this.liveProgress = 0;
+    this.liveColor = COLORS.user;
+    this.lt.startStroke();
+    this.paths = this.lt.paths;
+    this.strokeIndex = this.lt.index;
+  }
+
   render(now) {
-    if (this.mode === "wrong" && now >= this.wrongUntil) {
-      // 빨간 표시 끝: 같은 획을 다시
-      this.mode = "trace";
-      this.liveProgress = 0;
-      this.liveColor = COLORS.user;
-      this.lt.startStroke();
-      this.paths = this.lt.paths;
-      this.strokeIndex = this.lt.index;
-    }
+    if (this.mode === "wrong" && now >= this.wrongUntil) this.endWrong();
     const ctx = this.ctx;
     const size = this.canvas.width;
     if (!size) return;

@@ -270,7 +270,7 @@ html, body {
 .pad-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .spell { display: flex; gap: 6px; height: 28px; align-items: center; font-family: "Helvetica Neue", Arial, sans-serif; font-weight: 700; font-size: 20px; }
 .spell span { color: var(--outline); }
-.spell span.done { color: var(--green); }
+.spell span.written { color: var(--green); }
 .spell span.cur { color: var(--blue); font-size: 26px; text-decoration: underline; }
 #pad {
   width: min(56vw, 30dvh);

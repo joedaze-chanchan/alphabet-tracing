@@ -38,6 +38,18 @@ export function setupGame({ onExit, bestStore }) {
     quit: $("go-quit"),
   };
   const sky = els.sky.getContext("2d");
+  // 오래된 브라우저에는 roundRect가 없다
+  if (typeof sky.roundRect !== "function") {
+    sky.roundRect = function (x, y, w, h, r) {
+      const rr = Math.min(r, w / 2, h / 2);
+      this.moveTo(x + rr, y);
+      this.arcTo(x + w, y, x + w, y + h, rr);
+      this.arcTo(x + w, y + h, x, y + h, rr);
+      this.arcTo(x, y + h, x, y, rr);
+      this.arcTo(x, y, x + w, y, rr);
+      this.closePath();
+    };
+  }
 
   let level = "easy";
   let g = null; // 진행 중인 게임 상태
@@ -268,7 +280,7 @@ export function setupGame({ onExit, bestStore }) {
     }
     els.spell.innerHTML = g.target.word
       .split("")
-      .map((ch, i) => `<span class="${i < g.letterIndex ? "done" : i === g.letterIndex ? "cur" : ""}">${ch}</span>`)
+      .map((ch, i) => `<span class="${i < g.letterIndex ? "written" : i === g.letterIndex ? "cur" : ""}">${ch}</span>`)
       .join("");
   }
 
@@ -405,9 +417,14 @@ export function setupGame({ onExit, bestStore }) {
     if (!g) return;
     const dt = lastTs ? Math.min(0.05, (ts - lastTs) / 1000) : 0;
     lastTs = ts;
-    update(ts, dt);
-    drawSky(ts);
-    pad.render(ts);
+    try {
+      update(ts, dt);
+      drawSky(ts);
+      pad.render(ts);
+    } catch (err) {
+      // 한 프레임의 오류로 게임이 멈추지 않게 한다. 메시지 줄에 표시해 원인을 알 수 있게.
+      setMsg(`오류: ${err && err.message ? err.message : err}`, "bad");
+    }
     raf = requestAnimationFrame(frame);
   }
 
