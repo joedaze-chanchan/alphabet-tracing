@@ -2,6 +2,7 @@
 
 const KEY = "abc-trace-progress";
 const KEY_SETTINGS = "abc-trace-settings";
+const KEY_BEST = "abc-trace-game-best";
 
 export const DEFAULT_SETTINGS = { repeat: 3 }; // 한 글자를 따라 쓰는 횟수
 
@@ -78,5 +79,38 @@ export class SettingsStore {
     } catch {
       // 저장 실패는 무시
     }
+  }
+}
+
+// 게임 최고 점수 (난이도별)
+export class BestScoreStore {
+  constructor(storage = globalThis.localStorage) {
+    this.storage = storage;
+  }
+
+  load() {
+    try {
+      const raw = this.storage && this.storage.getItem(KEY_BEST);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  get(level) {
+    return this.load()[level] || 0;
+  }
+
+  // 새 점수를 반영하고 갱신된 최고 점수를 돌려준다
+  update(level, score) {
+    const data = this.load();
+    const best = Math.max(data[level] || 0, score);
+    data[level] = best;
+    try {
+      this.storage && this.storage.setItem(KEY_BEST, JSON.stringify(data));
+    } catch {
+      // 저장 실패는 무시
+    }
+    return best;
   }
 }

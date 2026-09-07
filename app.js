@@ -1,6 +1,8 @@
 import { LETTERS, LETTER_ORDER, STROKE_WIDTH, hasJoins } from "./letters.js";
 import { LetterTracer } from "./tracer.js";
-import { ProgressStore, SettingsStore, DEFAULT_SETTINGS } from "./progress.js";
+import { ProgressStore, SettingsStore, DEFAULT_SETTINGS, BestScoreStore } from "./progress.js";
+import { setupGame } from "./game.js";
+import { DIFFICULTY_ORDER } from "./words.js";
 
 const COLORS = {
   outline: "#b9b3a6",
@@ -37,6 +39,7 @@ const els = {
   words: $("words"),
   games: $("games"),
   menuAlphaProgress: $("menu-alpha-progress"),
+  menuGameBest: $("menu-game-best"),
   practice: $("practice"),
   grid: $("letter-grid"),
   resetBtn: $("reset-btn"),
@@ -63,6 +66,7 @@ const els = {
 
 const store = new ProgressStore();
 const settingsStore = new SettingsStore();
+const bestStore = new BestScoreStore();
 let settings = settingsStore.load(); // null이면 첫 실행
 const ctx = els.canvas.getContext("2d");
 
@@ -172,6 +176,8 @@ function renderMain() {
   els.settingsRepeat.textContent = String(settings ? settings.repeat : DEFAULT_SETTINGS.repeat);
   const done = LETTER_ORDER.filter((l) => store.get(l).completed).length;
   els.menuAlphaProgress.textContent = done > 0 ? `★ ${done}/${LETTER_ORDER.length}` : "";
+  const best = Math.max(...DIFFICULTY_ORDER.map((k) => bestStore.get(k)));
+  els.menuGameBest.textContent = best > 0 ? `최고 ${best}점` : "";
 }
 
 function showMain() {
@@ -567,12 +573,16 @@ els.resetBtn.addEventListener("click", () => {
     renderMain();
   }
 });
+const game = setupGame({ onExit: showMain, bestStore });
 for (const btn of document.querySelectorAll("[data-go]")) {
   btn.addEventListener("click", () => {
     const go = btn.dataset.go;
     if (go === "home") showHome();
     else if (go === "main") showMain();
-    else showScreen(go);
+    else if (go === "games") {
+      showScreen("games");
+      game.showMenu();
+    } else showScreen(go);
   });
 }
 window.addEventListener("resize", () => {

@@ -29,7 +29,7 @@
       <button class="menu-btn" type="button" data-go="games">
         <span class="menu-num">3</span>
         <span class="menu-text"><b>게임하기</b><small>배운 글자로 놀아요</small></span>
-        <span class="menu-badge soon">준비 중</span>
+        <span class="menu-badge" id="menu-game-best"></span>
       </button>
     </nav>
     <footer class="home-footer">
@@ -72,16 +72,67 @@
     </div>
   </section>
 
-  <!-- 게임하기 (준비 중) -->
-  <section id="games" class="screen" hidden>
-    <header class="sub-header">
-      <button class="icon-btn" type="button" data-go="main" aria-label="대문으로">‹</button>
-      <h1>게임하기</h1>
-      <span class="icon-spacer"></span>
-    </header>
-    <div class="soon-box">
-      <div class="soon-icon">🎮</div>
-      <p>준비 중이에요.<br />배운 글자로 노는 게임이 들어올 자리예요.</p>
+  <!-- 게임하기 -->
+  <section id="games" class="screen game" hidden>
+    <div id="game-menu">
+      <header class="sub-header">
+        <button id="game-back" class="icon-btn" type="button" aria-label="대문으로">‹</button>
+        <h1>게임하기</h1>
+        <span class="icon-spacer"></span>
+      </header>
+      <div class="game-intro">
+        <div class="game-intro-icon">🛸</div>
+        <p>글자가 붙은 외계 비행선이 내려와요.<br />비행선을 터치하고 글자를 따라 쓰면 레이저가 발사돼요!</p>
+      </div>
+      <div id="game-diff" class="diff-list"></div>
+      <p id="game-best" class="game-best"></p>
+      <div class="game-start-wrap"><button id="game-start" class="btn primary" type="button">시작!</button></div>
+    </div>
+
+    <div id="game-play" hidden>
+      <div class="game-top">
+        <span id="game-score" class="game-score">0점</span>
+        <span id="game-lives" class="game-lives">♥♥♥</span>
+        <button id="game-pause" class="icon-btn small" type="button" aria-label="일시정지">II</button>
+      </div>
+      <canvas id="sky"></canvas>
+      <div class="game-bottom">
+        <div class="pad-col">
+          <div id="game-spell" class="spell"></div>
+          <canvas id="pad"></canvas>
+        </div>
+        <div class="energy-col">
+          <div class="energy-label">에너지</div>
+          <div class="energy-bar"><div id="game-energy" class="energy-fill"></div></div>
+        </div>
+      </div>
+      <p id="game-msg" class="game-msg"></p>
+
+      <div id="game-paused" class="done" hidden>
+        <div class="done-card">
+          <p>잠깐 쉬는 중</p>
+          <div class="done-actions">
+            <button id="go-quit" class="btn ghost" type="button">그만하기</button>
+            <button id="go-resume" class="btn primary" type="button">계속하기</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="game-over" class="done" hidden>
+        <div class="done-card">
+          <div class="done-star">🛸</div>
+          <p id="go-title">게임 끝</p>
+          <div class="go-stats">
+            <div id="go-score">0점</div>
+            <div id="go-kills">격추 0대</div>
+            <div id="go-best">최고 점수 0점</div>
+          </div>
+          <div class="done-actions">
+            <button id="go-menu" class="btn ghost" type="button">난이도 선택</button>
+            <button id="go-retry" class="btn primary" type="button">다시 하기</button>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
