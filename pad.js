@@ -6,7 +6,15 @@
 //   pad.render(now);      // 게임 루프에서 매 프레임 호출
 
 import { LETTERS, STROKE_WIDTH } from "./letters.js";
-import { LetterTracer } from "./tracer.js";
+import { LetterTracer, RADIUS_MARGIN } from "./tracer.js";
+
+// 손가락 허용 오차를 화면 픽셀 기준으로 보장한다. 작은 판일수록 좌표 단위 여유를 키운다.
+export const MIN_TOLERANCE_PX = 40;
+export function radiusMarginFor(padCssPx) {
+  if (!padCssPx) return RADIUS_MARGIN;
+  const unitsPerPx = 100 / padCssPx;
+  return Math.max(RADIUS_MARGIN, MIN_TOLERANCE_PX * unitsPerPx - STROKE_WIDTH / 2);
+}
 
 const COLORS = {
   outline: "#b9b3a6",
@@ -38,8 +46,9 @@ export class TracePad {
     this.onUp = (e) => this.pointerUp(e);
     canvas.addEventListener("pointerdown", this.onDown);
     canvas.addEventListener("pointermove", this.onMove);
+    this.onCancel = (e) => this.pointerCancel(e);
     canvas.addEventListener("pointerup", this.onUp);
-    canvas.addEventListener("pointercancel", this.onUp);
+    canvas.addEventListener("pointercancel", this.onCancel);
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
@@ -47,7 +56,7 @@ export class TracePad {
     this.canvas.removeEventListener("pointerdown", this.onDown);
     this.canvas.removeEventListener("pointermove", this.onMove);
     this.canvas.removeEventListener("pointerup", this.onUp);
-    this.canvas.removeEventListener("pointercancel", this.onUp);
+    this.canvas.removeEventListener("pointercancel", this.onCancel);
   }
 
   setLetter(letter) {
@@ -59,7 +68,8 @@ export class TracePad {
       this.mode = "empty";
       return;
     }
-    this.lt = new LetterTracer(LETTERS[letter], STROKE_WIDTH);
+    const padPx = this.canvas.getBoundingClientRect().width;
+    this.lt = new LetterTracer(LETTERS[letter], STROKE_WIDTH, { radiusMargin: radiusMarginFor(padPx) });
     this.paths = this.lt.paths;
     this.strokeIndex = 0;
     this.liveProgress = 0;
@@ -104,24 +114,40 @@ export class TracePad {
   pointerMove(e) {
     if (this.mode !== "trace" || e.pointerId !== this.pointerId) return;
     e.preventDefault();
-    const [x, y] = this.toLetterCoords(e);
-    const r = this.lt.move(x, y);
+    // 브라우저가 묶어서 보낸 중간 좌표까지 전부 쓴다 (빠른 획 대비)
+    const events = typeof e.getCoalescedEvents === "function" && e.getCoalescedEvents().length ? e.getCoalescedEvents() : [e];
+    for (const ev of events) {
+      const [x, y] = this.toLetterCoords(ev);
+      const r = this.lt.moveTo(x, y);
+      this.paths = this.lt.paths;
+      this.strokeIndex = this.lt.index;
+      if (!r.ok) {
+        this.releasePointer();
+        this.fail(r.reason, r.progress);
+        return;
+      }
+      this.liveProgress = r.progress;
+      if (r.chained && this.handlers.onStrokeDone) this.handlers.onStrokeDone();
+    }
+  }
+
+  // 시스템 제스처 등으로 브라우저가 터치를 취소한 경우: 오답이 아니므로 조용히 되돌린다
+  pointerCancel(e) {
+    if (e.pointerId !== this.pointerId) return;
+    this.releasePointer();
+    if (this.mode !== "trace" || !this.lt) return;
+    this.lt.cancel();
     this.paths = this.lt.paths;
     this.strokeIndex = this.lt.index;
-    if (!r.ok) {
-      this.releasePointer();
-      this.fail(r.reason, r.progress);
-      return;
-    }
-    this.liveProgress = r.progress;
-    if (r.chained && this.handlers.onStrokeDone) this.handlers.onStrokeDone();
+    this.liveProgress = 0;
   }
 
   pointerUp(e) {
     if (this.mode !== "trace" || e.pointerId !== this.pointerId) return;
     e.preventDefault();
     this.releasePointer();
-    const r = this.lt.end();
+    const [ux, uy] = this.toLetterCoords(e);
+    const r = this.lt.end(ux, uy);
     this.paths = this.lt.paths;
     this.strokeIndex = this.lt.index;
     this.liveProgress = 0;

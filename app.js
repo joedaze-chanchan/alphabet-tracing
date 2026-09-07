@@ -1,5 +1,6 @@
 import { LETTERS, LETTER_ORDER, STROKE_WIDTH, hasJoins } from "./letters.js";
 import { LetterTracer } from "./tracer.js";
+import { radiusMarginFor } from "./pad.js";
 import { ProgressStore, SettingsStore, DEFAULT_SETTINGS, BestScoreStore } from "./progress.js";
 import { setupGame } from "./game.js";
 import { DIFFICULTY_ORDER } from "./words.js";
@@ -240,7 +241,8 @@ function openLetter(letter) {
 
 // 획 판정을 처음부터 (새 회차 시작 시)
 function resetStrokes() {
-  state.lt = new LetterTracer(LETTERS[state.letter], STROKE_WIDTH);
+  const padPx = els.canvas.getBoundingClientRect().width;
+  state.lt = new LetterTracer(LETTERS[state.letter], STROKE_WIDTH, { radiusMargin: radiusMarginFor(padPx) });
   state.paths = state.lt.paths;
   state.strokeIndex = 0;
   state.liveProgress = 0;
@@ -359,28 +361,43 @@ function onPointerDown(e) {
 function onPointerMove(e) {
   if (state.mode !== "trace" || e.pointerId !== pointerId) return;
   e.preventDefault();
-  const [x, y] = toLetterCoords(e);
-  const r = state.lt.move(x, y);
+  const events = typeof e.getCoalescedEvents === "function" && e.getCoalescedEvents().length ? e.getCoalescedEvents() : [e];
+  for (const ev of events) {
+    const [x, y] = toLetterCoords(ev);
+    const r = state.lt.moveTo(x, y);
+    state.paths = state.lt.paths;
+    state.strokeIndex = state.lt.index;
+    if (!r.ok) {
+      releasePointer();
+      fail(r.reason, r.progress);
+      return;
+    }
+    state.liveProgress = r.progress;
+    if (r.chained) {
+      // 손을 떼지 않고 다음 획으로 이어 씀: 앞 획은 완료 처리
+      renderDots();
+      setHint(HINTS.good, "ok");
+    }
+  }
+}
+
+// 시스템 제스처 등으로 터치가 취소된 경우: 오답이 아니므로 조용히 되돌린다
+function onPointerCancel(e) {
+  if (e.pointerId !== pointerId) return;
+  releasePointer();
+  if (state.mode !== "trace") return;
+  state.lt.cancel();
   state.paths = state.lt.paths;
   state.strokeIndex = state.lt.index;
-  if (!r.ok) {
-    releasePointer();
-    fail(r.reason, r.progress);
-    return;
-  }
-  state.liveProgress = r.progress;
-  if (r.chained) {
-    // 손을 떼지 않고 다음 획으로 이어 씀: 앞 획은 완료 처리
-    renderDots();
-    setHint(HINTS.good, "ok");
-  }
+  state.liveProgress = 0;
 }
 
 function onPointerUp(e) {
   if (state.mode !== "trace" || e.pointerId !== pointerId) return;
   e.preventDefault();
   releasePointer();
-  const r = state.lt.end();
+  const [ux, uy] = toLetterCoords(e);
+  const r = state.lt.end(ux, uy);
   state.paths = state.lt.paths;
   state.strokeIndex = state.lt.index;
   if (!r.ok) {
@@ -552,7 +569,7 @@ function startLoop() {
 els.canvas.addEventListener("pointerdown", onPointerDown);
 els.canvas.addEventListener("pointermove", onPointerMove);
 els.canvas.addEventListener("pointerup", onPointerUp);
-els.canvas.addEventListener("pointercancel", onPointerUp);
+els.canvas.addEventListener("pointercancel", onPointerCancel);
 els.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 els.backBtn.addEventListener("click", showHome);

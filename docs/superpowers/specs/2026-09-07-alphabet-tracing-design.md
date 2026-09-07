@@ -81,3 +81,12 @@ ProgressStore 인터페이스: `load()`, `recordAttempt(letter, wrongs)`, `markC
   보통 = 3~4글자, 0.055, 두 대, 3.5초. 어려움 = 4~5글자, 0.08, 세 대, 2.5초. 격추마다 4%씩 빨라지고 최대 2배.
 - 판정: 연습과 같은 LetterTracer. 쓰기 판은 pad.js(TracePad)로 분리.
 - 파일: game.js(진행·그리기), pad.js(쓰기 판), words.js(단어 목록·난이도), progress.js BestScoreStore.
+
+## 터치 입력 견고화 (2026-09-07)
+- 좌표 보간: 직전 위치에서 지금 위치까지 2.5단위 간격으로 나눠 판정 (`LetterTracer.moveTo`). 빠른 손가락이 좌표를 드문드문 보내도 놓치지 않는다.
+- 브라우저가 묶어 보낸 중간 좌표(getCoalescedEvents)도 모두 사용.
+- 손 뗀 좌표를 `end(x, y)`로 넘겨 마지막 구간까지 판정한 뒤 끝낸다.
+- 허용 반경을 화면 픽셀 기준 최소 40px로 보장 (`radiusMarginFor(padPx)`): 판이 작을수록 좌표 단위 여유를 키운다.
+- pointercancel(시스템 제스처 등)은 오답이 아니라 현재 획만 조용히 되돌린다 (`LetterTracer.cancel`).
+- 빨간 오답 표시 중에 새 획을 대면 기다리지 않고 바로 받는다.
+- 게임 쓰기 판을 키우고(64vw/33dvh) 아래쪽 안전 여백을 두어 안드로이드 하단 제스처와 겹치지 않게 함.
