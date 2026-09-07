@@ -59,8 +59,6 @@ html, body {
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
 }
-.letter-btn { flex-direction: column; gap: 2px; }
-.letter-btn .ko { font-size: 14px; font-weight: 400; color: var(--muted); font-family: inherit; }
 .letter-btn:active { transform: scale(0.96); }
 .letter-btn.completed { border-color: var(--gold); }
 .letter-btn .star {
@@ -108,15 +106,6 @@ html, body {
 }
 .stroke-dots .dot.current { border-color: var(--blue); background: #dbeafe; }
 .stroke-dots .dot.filled { border-color: var(--green); background: var(--green); }
-
-.letter-label {
-  text-align: center;
-  font-size: 22px;
-  color: var(--ink);
-  padding: 4px 16px 0;
-}
-.letter-label .big { font-size: 32px; font-weight: 700; font-family: "Helvetica Neue", Arial, sans-serif; margin-right: 8px; }
-.letter-label .ko { color: var(--muted); font-size: 18px; }
 
 .canvas-wrap {
   flex: 1;

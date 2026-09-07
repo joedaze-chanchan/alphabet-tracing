@@ -37,7 +37,6 @@ const els = {
   dots: $("stroke-dots"),
   canvas: $("canvas"),
   hint: $("hint"),
-  label: $("letter-label"),
   done: $("done"),
   doneText: $("done-text"),
   againBtn: $("again-btn"),
@@ -70,12 +69,7 @@ function renderHome() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "letter-btn";
-    const big = document.createElement("span");
-    big.textContent = letter;
-    const ko = document.createElement("span");
-    ko.className = "ko";
-    ko.textContent = LETTERS[letter].ko;
-    btn.append(big, ko);
+    btn.textContent = letter;
     if (store.get(letter).completed) {
       btn.classList.add("completed");
       const star = document.createElement("span");
@@ -110,7 +104,6 @@ function openLetter(letter) {
   els.done.hidden = true;
   els.home.hidden = true;
   els.practice.hidden = false;
-  els.label.innerHTML = `<span class="big">${letter}</span><span class="ko">${LETTERS[letter].ko}</span>`;
   resizeCanvas();
   renderDots();
   setHint(HINTS.watch);
