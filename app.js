@@ -136,7 +136,7 @@ function speakWithTTS(letter) {
     u.lang = "en-US";
     const voice = synth.getVoices().find((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
     if (voice) u.voice = voice;
-    u.rate = 0.9;
+    u.rate = 0.7;
     currentUtterance = u;
     // cancel() 직후의 speak()는 안드로이드 크롬에서 무시되는 경우가 있어 잠깐 뒤에 호출한다
     setTimeout(() => synth.speak(u), 60);

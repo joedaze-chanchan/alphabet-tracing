@@ -10,7 +10,7 @@ async def main():
     os.makedirs(OUT, exist_ok=True)
     for letter, word in ITEMS.items():
         path = os.path.join(OUT, f"{letter}.mp3")
-        await edge_tts.Communicate(f"{letter}. {letter}. {word}.", VOICE, rate="-15%").save(path)
+        await edge_tts.Communicate(f"{letter}... {letter}... {word}.", VOICE, rate="-35%").save(path)
         print(letter, os.path.getsize(path), "bytes")
 
 asyncio.run(main())
