@@ -17,9 +17,9 @@ export function setupGame({ onExit, bestStore, resume }) {
     play: $("game-play"),
     back: $("game-back"),
     diff: $("game-diff"),
-    resume: $("game-resume"),
-    resumeText: $("game-resume-text"),
-    resumeBtn: $("game-resume-btn"),
+    resumeBanner: $("game-resume"),
+    resumeBannerText: $("game-resume-text"),
+    resumeBannerBtn: $("game-resume-btn"),
     best: $("game-best"),
     start: $("game-start"),
     score: $("game-score"),
@@ -93,10 +93,10 @@ export function setupGame({ onExit, bestStore, resume }) {
     if (saved && DIFFICULTY[saved.level]) {
       const hearts = "♥".repeat(saved.lives) + "♡".repeat(Math.max(0, LIVES - saved.lives));
       const where = saved.round ? ` · ${saved.round.en} ${saved.round.phase + 1}단계` : "";
-      els.resumeText.textContent = `${DIFFICULTY[saved.level].label} · ${saved.score}점 · ${hearts}${where}`;
-      els.resume.hidden = false;
+      els.resumeBannerText.textContent = `${DIFFICULTY[saved.level].label} · ${saved.score}점 · ${hearts}${where}`;
+      els.resumeBanner.hidden = false;
     } else {
-      els.resume.hidden = true;
+      els.resumeBanner.hidden = true;
     }
   }
 
@@ -956,7 +956,7 @@ export function setupGame({ onExit, bestStore, resume }) {
     onExit();
   });
   els.start.addEventListener("click", () => newGame());
-  els.resumeBtn.addEventListener("click", () => {
+  els.resumeBannerBtn.addEventListener("click", () => {
     const saved = resume ? resume.get() : null;
     if (saved) newGame(saved);
   });
