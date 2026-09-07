@@ -1,4 +1,4 @@
-import { LETTERS, LETTER_ORDER, STROKE_WIDTH } from "./letters.js";
+import { LETTERS, LETTER_ORDER, STROKE_WIDTH, hasJoins } from "./letters.js";
 import { LetterTracer } from "./tracer.js";
 import { ProgressStore, SettingsStore, DEFAULT_SETTINGS } from "./progress.js";
 
@@ -19,7 +19,7 @@ const MAX_WRONG_STREAK = 3;
 const HINTS = {
   watch: "시범을 잘 보세요",
   trace: "파란 점에서 시작해 따라 써 보세요",
-  traceJoin: "파란 점에서 시작해 따라 써 보세요. 굽은 획은 이어 써도 돼요",
+  traceJoin: "파란 점에서 시작해 따라 써 보세요. 이어 써도 돼요",
   good: "좋아요! 다음 획",
   start: "파란 점에서 시작하세요",
   off: "선 밖으로 나갔어요. 획을 따라 그리세요",
@@ -242,11 +242,12 @@ function resetStrokes() {
 function beginTrace() {
   state.mode = "trace";
   state.lt.startStroke();
+  state.paths = state.lt.paths;
   state.strokeIndex = state.lt.index;
   state.liveProgress = 0;
   state.liveColor = COLORS.user;
   renderDots();
-  setHint(LETTERS[state.letter].joins ? HINTS.traceJoin : HINTS.trace);
+  setHint(hasJoins(state.letter) ? HINTS.traceJoin : HINTS.trace);
 }
 
 function setHint(text, kind = "") {
@@ -335,6 +336,7 @@ function onPointerDown(e) {
   }
   const [x, y] = toLetterCoords(e);
   const r = state.lt.begin(x, y);
+  state.paths = state.lt.paths;
   if (!r.ok) {
     releasePointer();
     fail(r.reason, 0);
@@ -349,6 +351,7 @@ function onPointerMove(e) {
   e.preventDefault();
   const [x, y] = toLetterCoords(e);
   const r = state.lt.move(x, y);
+  state.paths = state.lt.paths;
   state.strokeIndex = state.lt.index;
   if (!r.ok) {
     releasePointer();
@@ -368,6 +371,7 @@ function onPointerUp(e) {
   e.preventDefault();
   releasePointer();
   const r = state.lt.end();
+  state.paths = state.lt.paths;
   state.strokeIndex = state.lt.index;
   if (!r.ok) {
     fail(r.reason, r.progress);

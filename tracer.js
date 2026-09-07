@@ -93,18 +93,18 @@ export class StrokeTracer {
 
 export const CHAIN_MIN_PROGRESS = 0.2; // 이어 쓴 다음 획이 이 진행도 미만이면 "아직 시작 안 함"으로 본다
 
-// 글자 하나의 획 순서를 관리한다. joins에 든 획은 손을 떼지 않고 다음 획으로 이어 써도 된다.
+// 획 묶음(strokes + joins) 하나의 순서를 관리한다. joins에 든 획은 손을 떼지 않고 다음 획으로 이어 써도 된다.
 //
-//   const lt = new LetterTracer(LETTERS.B, STROKE_WIDTH);
-//   lt.begin(x, y) -> { ok, reason?, progress }
-//   lt.move(x, y)  -> { ok, reason?, progress, chained? }   chained: 이번 이동에서 다음 획으로 넘어감
-//   lt.end()       -> { ok, reason?, progress, strokeDone, letterDone, restarted? }
-//                     strokeDone: 이번 터치로 완료된 획이 하나라도 있음
-//                     restarted: 이어 쓰기로 넘어간 다음 획을 거의 안 그리고 떼서 그 획을 처음부터 다시 시작
-export class LetterTracer {
-  constructor(letter, strokeWidth) {
-    this.paths = letter.strokes.map((s) => buildPath(s, 1));
-    this.joins = new Set(letter.joins || []);
+//   const t = new StrokeSetTracer({ strokes, joins }, STROKE_WIDTH);
+//   t.begin(x, y) -> { ok, reason?, progress }
+//   t.move(x, y)  -> { ok, reason?, progress, chained? }   chained: 이번 이동에서 다음 획으로 넘어감
+//   t.end()       -> { ok, reason?, progress, strokeDone, letterDone, restarted? }
+//                    strokeDone: 이번 터치로 완료된 획이 하나라도 있음
+//                    restarted: 이어 쓰기로 넘어간 다음 획을 거의 안 그리고 떼서 그 획을 처음부터 다시 시작
+export class StrokeSetTracer {
+  constructor(set, strokeWidth) {
+    this.paths = set.strokes.map((s) => buildPath(s, 1));
+    this.joins = new Set(set.joins || []);
     this.strokeWidth = strokeWidth;
     this.index = 0;
     this.startStroke();
@@ -137,11 +137,22 @@ export class LetterTracer {
   }
 
   move(x, y) {
-    if (this.detached) return { ok: true, progress: this.tracer.progress };
+    if (this.detached) {
+      // 이어 쓰기 직후 잠깐 벗어난 상태. 앞 획의 끝을 마저 그리는 중일 수 있으니,
+      // 손가락이 다음 획 시작 구간으로 돌아오면 다시 이어 간다.
+      const again = new StrokeTracer(this.paths[this.index], this.strokeWidth);
+      if (again.begin(x, y).ok) {
+        this.tracer = again;
+        this.detached = false;
+        return { ok: true, progress: again.progress };
+      }
+      return { ok: true, progress: 0 };
+    }
 
     // 이어 쓰기: 현재 획을 충분히 그렸고 다음 획으로 이어도 되는 획이면, 손가락이 다음 획 시작 구간에
     // 들어온 순간 다음 획 판정으로 넘어간다.
-    if (!this.chained && this.joins.has(this.index) && this.index + 1 < this.paths.length && this.tracer.progress >= FINISH_ZONE) {
+    // (한 터치 안에서 여러 번 이어질 수 있다. 예: Z, W를 1획으로)
+    if (this.joins.has(this.index) && this.index + 1 < this.paths.length && this.tracer.progress >= FINISH_ZONE) {
       const next = new StrokeTracer(this.paths[this.index + 1], this.strokeWidth);
       if (next.begin(x, y).ok) {
         this.index++;
@@ -171,5 +182,70 @@ export class LetterTracer {
     this.index++;
     this.startStroke();
     return { ok: true, progress: r.progress, strokeDone: true, letterDone: this.done };
+  }
+}
+
+// 글자 하나의 판정. 시범 획순(primary)과 대체 획순(alts)을 동시에 추적해서, 어느 한 방식으로든
+// 맞게 쓰면 정답으로 본다. 예: M을 위에서 내려 긋는 4획 방식과, 아래에서 올려 긋는 1획 방식.
+// API는 StrokeSetTracer와 같고, paths/index/strokeCount/progress/done은 앞서 가는 방식 기준이다.
+export class LetterTracer {
+  constructor(letter, strokeWidth) {
+    const sets = [{ strokes: letter.strokes, joins: letter.joins }, ...(letter.alts || [])];
+    this.variants = sets.map((set) => new StrokeSetTracer(set, strokeWidth));
+    this.alive = [...this.variants]; // 지금까지의 획과 모순되지 않는 방식들
+    this.touching = []; // 현재 터치에서 아직 살아 있는 방식들
+  }
+
+  get leading() {
+    return this.touching[0] || this.alive[0] || this.variants[0];
+  }
+  get paths() {
+    return this.leading.paths;
+  }
+  get index() {
+    return this.leading.index;
+  }
+  get strokeCount() {
+    return this.leading.strokeCount;
+  }
+  get progress() {
+    return this.leading.progress;
+  }
+  get done() {
+    return this.leading.done;
+  }
+
+  startStroke() {
+    this.touching = [];
+    for (const v of this.alive) v.startStroke();
+  }
+
+  begin(x, y) {
+    const results = this.alive.map((v) => [v, v.begin(x, y)]);
+    this.touching = results.filter(([, r]) => r.ok).map(([v]) => v);
+    if (this.touching.length === 0) return results[0][1];
+    return results.find(([v]) => v === this.touching[0])[1];
+  }
+
+  move(x, y) {
+    if (this.touching.length === 0) return { ok: false, reason: "inactive", progress: 0 };
+    const results = this.touching.map((v) => [v, v.move(x, y)]);
+    const alive = results.filter(([, r]) => r.ok);
+    if (alive.length === 0) {
+      this.touching = [];
+      return results[0][1];
+    }
+    this.touching = alive.map(([v]) => v);
+    return alive[0][1];
+  }
+
+  end() {
+    if (this.touching.length === 0) return { ok: false, reason: "inactive", progress: 0, strokeDone: false, letterDone: false };
+    const results = this.touching.map((v) => [v, v.end()]);
+    const okOnes = results.filter(([, r]) => r.ok);
+    this.touching = [];
+    if (okOnes.length === 0) return results[0][1];
+    this.alive = okOnes.map(([v]) => v); // 이 터치와 맞는 방식만 남긴다
+    return okOnes[0][1];
   }
 }
