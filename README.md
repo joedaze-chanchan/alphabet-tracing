@@ -26,6 +26,7 @@ npm test
 | `app.js` | 화면 전환, 캔버스 렌더링, 시범 애니메이션, 터치 처리 |
 | `progress.js` | 학습 기록·설정·게임 최고 점수 저장 (localStorage) |
 | `game.js`, `pad.js`, `words.js` | 게임 진행·그리기, 쓰기 판, 단어 목록·난이도 |
+| `profiles.js` | 참여자(캐릭터) 목록, 참여자별 저장소, 이어하기 기록 |
 | `tests/tracer.test.js` | 판정 엔진·획 데이터 테스트 |
 | `audio/*.mp3` | 글자별 발음 (tools/make_audio.py로 생성, edge-tts) |
 

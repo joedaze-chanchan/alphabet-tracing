@@ -264,6 +264,12 @@ export class LetterTracer {
     this.startStroke();
   }
 
+  // 이어하기: 앞의 n개 획을 이미 쓴 것으로 하고 n번째 획부터 시작한다
+  skipTo(n) {
+    for (const v of this.alive) v.index = Math.max(0, Math.min(n, v.paths.length));
+    this.startStroke();
+  }
+
   begin(x, y) {
     this.last = [x, y];
     const results = this.alive.map((v) => [v, v.begin(x, y)]);

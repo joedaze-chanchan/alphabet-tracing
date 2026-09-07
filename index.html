@@ -9,10 +9,34 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- 대문: 메뉴 선택 -->
-  <section id="main" class="screen">
+  <!-- 참여자 고르기 / 만들기 -->
+  <section id="profile" class="screen" hidden>
     <header class="home-header">
       <h1>영어 배우기</h1>
+      <p class="sub">누가 할까요?</p>
+    </header>
+    <div id="profile-list" class="profile-list"></div>
+    <div id="profile-form" class="profile-form" hidden>
+      <h2 id="profile-form-title">새 친구 만들기</h2>
+      <p class="modal-sub">캐릭터 모습을 고르고 이름을 적어 주세요</p>
+      <div id="avatar-grid" class="avatar-grid"></div>
+      <input id="profile-name" class="name-input" type="text" maxlength="8" placeholder="이름 (8글자까지)" autocomplete="off" />
+      <div class="done-actions">
+        <button id="profile-cancel" class="btn ghost" type="button">취소</button>
+        <button id="profile-save" class="btn primary" type="button">시작!</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 대문: 메뉴 선택 -->
+  <section id="main" class="screen" hidden>
+    <header class="home-header">
+      <h1>영어 배우기</h1>
+      <button id="profile-chip" class="profile-chip" type="button">
+        <span id="chip-avatar" class="chip-avatar">🦁</span>
+        <span id="chip-name" class="chip-name">이름</span>
+        <small>바꾸기</small>
+      </button>
       <p class="sub">무엇을 연습할까요?</p>
     </header>
     <nav class="menu">
@@ -56,6 +80,10 @@
       <span class="icon-spacer"></span>
     </header>
     <p class="sub center">글자를 고르고 획순대로 따라 써 보세요</p>
+    <div id="resume-practice" class="resume-banner" hidden>
+      <span id="resume-practice-text"></span>
+      <button id="resume-practice-btn" class="btn primary small" type="button">이어서 하기</button>
+    </div>
     <div id="letter-grid" class="letter-grid"></div>
   </section>
 
@@ -83,6 +111,10 @@
       <div class="game-intro">
         <div class="game-intro-icon">🛸</div>
         <p>글자가 붙은 외계 비행선이 내려와요.<br />비행선을 터치하고 글자를 따라 쓰면 레이저가 발사돼요!</p>
+      </div>
+      <div id="game-resume" class="resume-banner" hidden>
+        <span id="game-resume-text"></span>
+        <button id="game-resume-btn" class="btn primary small" type="button">이어서 하기</button>
       </div>
       <div id="game-diff" class="diff-list"></div>
       <p id="game-best" class="game-best"></p>

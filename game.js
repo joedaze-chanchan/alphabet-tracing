@@ -11,12 +11,15 @@ const GROUND_FLASH_MS = 500;
 
 const $ = (id) => document.getElementById(id);
 
-export function setupGame({ onExit, bestStore }) {
+export function setupGame({ onExit, bestStore, resume }) {
   const els = {
     menu: $("game-menu"),
     play: $("game-play"),
     back: $("game-back"),
     diff: $("game-diff"),
+    resume: $("game-resume"),
+    resumeText: $("game-resume-text"),
+    resumeBtn: $("game-resume-btn"),
     best: $("game-best"),
     start: $("game-start"),
     score: $("game-score"),
@@ -85,6 +88,22 @@ export function setupGame({ onExit, bestStore }) {
     }
     const best = bestStore.get(level);
     els.best.textContent = best > 0 ? `최고 점수 ${best}점` : "아직 기록이 없어요";
+    // 하다 만 게임이 있으면 이어하기
+    const saved = resume ? resume.get() : null;
+    if (saved && DIFFICULTY[saved.level]) {
+      const hearts = "♥".repeat(saved.lives) + "♡".repeat(Math.max(0, LIVES - saved.lives));
+      const where = saved.round ? ` · ${saved.round.en} ${saved.round.phase + 1}단계` : "";
+      els.resumeText.textContent = `${DIFFICULTY[saved.level].label} · ${saved.score}점 · ${hearts}${where}`;
+      els.resume.hidden = false;
+    } else {
+      els.resume.hidden = true;
+    }
+  }
+
+  // 진행 중인 게임을 저장한다 (뒤로 가기, 화면 전환, 단계 변화 때)
+  function saveState() {
+    if (!resume || !g || g.over) return;
+    resume.set({ level, score: g.score, kills: g.kills, lives: g.lives, round: g.round, lastWord: g.lastWord });
   }
 
   function showMenu() {
@@ -97,17 +116,18 @@ export function setupGame({ onExit, bestStore }) {
 
   // ---------- 게임 상태 ----------
 
-  function newGame() {
+  function newGame(saved = null) {
+    if (saved && DIFFICULTY[saved.level]) level = saved.level;
     const d = DIFFICULTY[level];
     g = {
       d,
       ships: [],
-      score: 0,
-      kills: 0,
-      lives: LIVES,
+      score: saved ? saved.score || 0 : 0,
+      kills: saved ? saved.kills || 0 : 0,
+      lives: saved ? Math.max(1, Math.min(LIVES, saved.lives || LIVES)) : LIVES,
       nextSpawnAt: 0,
-      lastWord: null,
-      round: null, // { en, ko, isLetter, phase } 같은 단어를 세 번 연달아
+      lastWord: saved ? saved.lastWord || null : null,
+      round: saved && saved.round ? { ...saved.round } : null, // { en, ko, isLetter, phase } 같은 단어를 세 번 연달아
       quizLocked: false,
       target: null, // 선택된 비행선
       letterIndex: 0,
@@ -135,8 +155,10 @@ export function setupGame({ onExit, bestStore }) {
     renderHud();
     setEnergy(0);
     setSpell();
-    setMsg("비행선을 터치해서 고르세요");
+    setMsg(saved ? "이어서 시작! 비행선을 터치해서 고르세요" : "비행선을 터치해서 고르세요");
     lastTs = 0;
+    if (!saved && resume) resume.clear();
+    saveState();
     startLoop();
   }
 
@@ -268,6 +290,7 @@ export function setupGame({ onExit, bestStore }) {
       gameOver();
     } else {
       setMsg("비행선이 착륙했어요! 목숨 하나를 잃었어요", "bad");
+      saveState();
     }
   }
 
@@ -366,6 +389,7 @@ export function setupGame({ onExit, bestStore }) {
     // 같은 단어의 다음 단계로. 세 단계를 다 마치면 새 단어.
     if (g.round && g.round.phase < PHASES.length - 1) g.round.phase += 1;
     else g.round = null;
+    saveState();
     g.nextSpawnAt = now + LASER_MS + g.d.spawnMs;
     setMsg(`발사! +${s.word.length * SCORE_PER_LETTER}점`, "ok");
     setTimeout(() => {
@@ -378,6 +402,7 @@ export function setupGame({ onExit, bestStore }) {
 
   function gameOver() {
     g.over = true;
+    if (resume) resume.clear();
     pad.clear();
     const best = bestStore.update(level, g.score);
     els.overTitle.textContent = g.score >= best && g.score > 0 ? "최고 기록!" : "게임 끝";
@@ -925,22 +950,34 @@ export function setupGame({ onExit, bestStore }) {
     if (best) selectShip(best.s);
   });
   els.back.addEventListener("click", () => {
+    saveState();
     stopLoop();
     g = null;
     onExit();
   });
-  els.start.addEventListener("click", newGame);
+  els.start.addEventListener("click", () => newGame());
+  els.resumeBtn.addEventListener("click", () => {
+    const saved = resume ? resume.get() : null;
+    if (saved) newGame(saved);
+  });
   els.pause.addEventListener("click", () => setPaused(true));
   els.resume.addEventListener("click", () => setPaused(false));
-  els.quit.addEventListener("click", showMenu);
-  els.overRetry.addEventListener("click", newGame);
+  els.quit.addEventListener("click", () => {
+    saveState();
+    showMenu();
+  });
+  els.overRetry.addEventListener("click", () => newGame());
   els.overMenu.addEventListener("click", showMenu);
   window.addEventListener("resize", () => {
     if (g) resize();
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden && g && !g.over) setPaused(true);
+    if (document.hidden && g && !g.over) {
+      saveState();
+      setPaused(true);
+    }
   });
+  window.addEventListener("pagehide", saveState);
 
   return { showMenu };
 }

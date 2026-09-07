@@ -3,6 +3,7 @@ import { LetterTracer } from "./tracer.js";
 import { radiusMarginFor } from "./pad.js";
 import { ProgressStore, SettingsStore, DEFAULT_SETTINGS, BestScoreStore } from "./progress.js";
 import { setupGame } from "./game.js";
+import { ProfileStore, scopedStorage, ResumeStore, AVATARS, MAX_NAME_LENGTH } from "./profiles.js";
 import { DIFFICULTY_ORDER } from "./words.js";
 
 const COLORS = {
@@ -63,12 +64,41 @@ const els = {
   settingsRepeat: $("settings-repeat"),
   repeatOptions: $("repeat-options"),
   settingsSave: $("settings-save"),
+  profile: $("profile"),
+  profileList: $("profile-list"),
+  profileForm: $("profile-form"),
+  profileFormTitle: $("profile-form-title"),
+  avatarGrid: $("avatar-grid"),
+  profileName: $("profile-name"),
+  profileCancel: $("profile-cancel"),
+  profileSave: $("profile-save"),
+  profileChip: $("profile-chip"),
+  chipAvatar: $("chip-avatar"),
+  chipName: $("chip-name"),
+  resumePractice: $("resume-practice"),
+  resumePracticeText: $("resume-practice-text"),
+  resumePracticeBtn: $("resume-practice-btn"),
 };
 
-const store = new ProgressStore();
-const settingsStore = new SettingsStore();
-const bestStore = new BestScoreStore();
-let settings = settingsStore.load(); // null이면 첫 실행
+// ---------- 참여자 ----------
+// 모든 기록(학습, 설정, 게임 점수, 이어하기)은 참여자별 저장소에 따로 담긴다.
+const profileStore = new ProfileStore();
+let profile = null;
+let store = null;
+let settingsStore = null;
+let bestStore = null;
+let resumeStore = null;
+let settings = null; // null이면 이 참여자의 첫 실행
+
+function useProfile(p) {
+  profile = p;
+  const scoped = scopedStorage(p.id);
+  store = new ProgressStore(scoped);
+  settingsStore = new SettingsStore(scoped);
+  bestStore = new BestScoreStore(scoped);
+  resumeStore = new ResumeStore(scoped);
+  settings = settingsStore.load();
+}
 const ctx = els.canvas.getContext("2d");
 
 const state = {
@@ -169,12 +199,109 @@ function renderRound() {
 
 // ---------- 홈 ----------
 
-// 화면 전환: main(대문) | home(알파벳 고르기) | words | games | practice
+// 화면 전환: profile(참여자) | main(대문) | home(알파벳 고르기) | words | games | practice
 function showScreen(name) {
-  for (const key of ["main", "home", "words", "games", "practice"]) els[key].hidden = key !== name;
+  for (const key of ["profile", "main", "home", "words", "games", "practice"]) els[key].hidden = key !== name;
+}
+
+// ---------- 참여자 화면 ----------
+
+let pendingAvatar = AVATARS[0];
+
+function profileStat(p) {
+  const prog = new ProgressStore(scopedStorage(p.id));
+  const done = LETTER_ORDER.filter((l) => prog.get(l).completed).length;
+  return done > 0 ? `★ ${done}/${LETTER_ORDER.length}` : "새로 시작";
+}
+
+function renderProfileList() {
+  els.profileList.innerHTML = "";
+  for (const p of profileStore.list()) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "profile-card";
+    card.innerHTML = `<span class="avatar">${p.avatar}</span><span class="name">${escapeHtml(p.name)}</span><span class="stat">${profileStat(p)}</span>`;
+    card.addEventListener("click", () => enterProfile(p));
+    const rm = document.createElement("span");
+    rm.className = "remove";
+    rm.textContent = "✕";
+    rm.setAttribute("role", "button");
+    rm.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (confirm(`${p.name}의 기록을 모두 지우고 삭제할까요?`)) {
+        profileStore.remove(p.id);
+        renderProfileList();
+      }
+    });
+    card.appendChild(rm);
+    els.profileList.appendChild(card);
+  }
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "profile-card new";
+  add.innerHTML = `<span class="avatar">＋</span><span class="name">새 친구 만들기</span>`;
+  add.addEventListener("click", openProfileForm);
+  els.profileList.appendChild(add);
+}
+
+function escapeHtml(t) {
+  return String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function showProfileScreen() {
+  cancelDemo();
+  cancelAnimationFrame(state.raf);
+  state.mode = "idle";
+  els.profileForm.hidden = true;
+  els.profileList.hidden = false;
+  renderProfileList();
+  showScreen("profile");
+}
+
+function openProfileForm() {
+  pendingAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+  els.avatarGrid.innerHTML = "";
+  for (const a of AVATARS) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "avatar-opt" + (a === pendingAvatar ? " selected" : "");
+    b.textContent = a;
+    b.addEventListener("click", () => {
+      pendingAvatar = a;
+      for (const el of els.avatarGrid.children) el.classList.toggle("selected", el.textContent === a);
+    });
+    els.avatarGrid.appendChild(b);
+  }
+  els.profileName.value = "";
+  els.profileName.maxLength = MAX_NAME_LENGTH;
+  els.profileList.hidden = true;
+  els.profileForm.hidden = false;
+  setTimeout(() => els.profileName.focus(), 50);
+}
+
+function saveProfileForm() {
+  const name = els.profileName.value.trim();
+  if (!name) {
+    els.profileName.focus();
+    els.profileName.placeholder = "이름을 적어 주세요!";
+    return;
+  }
+  const p = profileStore.create(name, pendingAvatar);
+  enterProfile(p);
+}
+
+function enterProfile(p) {
+  profileStore.select(p.id);
+  useProfile(p);
+  showMain();
+  if (!settings) openSettings(); // 이 참여자의 첫 실행: 따라 쓰기 횟수부터 정한다
 }
 
 function renderMain() {
+  if (profile) {
+    els.chipAvatar.textContent = profile.avatar;
+    els.chipName.textContent = profile.name;
+  }
   els.settingsRepeat.textContent = String(settings ? settings.repeat : DEFAULT_SETTINGS.repeat);
   const done = LETTER_ORDER.filter((l) => store.get(l).completed).length;
   els.menuAlphaProgress.textContent = done > 0 ? `★ ${done}/${LETTER_ORDER.length}` : "";
@@ -183,6 +310,7 @@ function renderMain() {
 }
 
 function showMain() {
+  savePracticeProgress();
   cancelDemo();
   cancelAnimationFrame(state.raf);
   state.mode = "idle";
@@ -209,21 +337,44 @@ function renderHome() {
   }
 }
 
+function renderResumeBanner() {
+  const r = resumeStore.get("practice");
+  if (!r || !LETTERS[r.letter] || store.get(r.letter).completed) {
+    els.resumePractice.hidden = true;
+    return;
+  }
+  const strokeCount = LETTERS[r.letter].strokes.length;
+  const part = r.strokeIndex > 0 ? ` · ${r.strokeIndex + 1}획째부터` : "";
+  els.resumePracticeText.textContent = `${r.letter} 쓰던 중이에요 (${r.round}번째${part}, 총 ${strokeCount}획)`;
+  els.resumePractice.hidden = false;
+}
+
 function showHome() {
+  savePracticeProgress();
   cancelDemo();
   cancelAnimationFrame(state.raf);
   state.mode = "idle";
   renderHome();
+  renderResumeBanner();
   showScreen("home");
+}
+
+// 하던 글자를 저장한다 (연습 화면에 있을 때만). 글자를 다 완성하면 지운다.
+function savePracticeProgress() {
+  if (!resumeStore || !state.letter || els.practice.hidden) return;
+  if (state.mode === "idle") return;
+  const strokeIndex = state.lt ? state.lt.index : 0;
+  if (state.mode === "done" && strokeIndex >= state.paths.length && state.round >= settings.repeat) return;
+  resumeStore.set("practice", { letter: state.letter, round: state.round, strokeIndex, wrongsTotal: state.wrongsTotal });
 }
 
 // ---------- 연습 ----------
 
-function openLetter(letter) {
+function openLetter(letter, resume = null) {
   state.letter = letter;
   state.wrongStreak = 0;
-  state.wrongsTotal = 0;
-  state.round = 1;
+  state.wrongsTotal = resume ? resume.wrongsTotal || 0 : 0;
+  state.round = resume ? Math.max(1, Math.min(resume.round || 1, settings.repeat)) : 1;
   resetStrokes();
   els.done.hidden = true;
   showScreen("practice");
@@ -232,8 +383,19 @@ function openLetter(letter) {
   speak(letter);
   resizeCanvas();
   renderDots();
-  setHint(HINTS.watch);
   startLoop();
+  if (resume && (resume.round > 1 || resume.strokeIndex > 0)) {
+    // 하던 곳부터: 시범 없이 바로, 이미 쓴 획은 초록으로
+    const skip = Math.min(resume.strokeIndex || 0, state.paths.length - 1);
+    state.lt.skipTo(skip);
+    state.mode = "trace";
+    beginTrace();
+    setHint(`${state.round}번째, ${skip + 1}획째부터 이어서 써 볼까요`, "ok");
+    savePracticeProgress();
+    return;
+  }
+  setHint(HINTS.watch);
+  savePracticeProgress();
   runDemo().then((finished) => {
     if (finished) beginTrace();
   });
@@ -451,6 +613,7 @@ function succeed(strokeDone) {
   state.liveProgress = 0;
   beginTrace();
   if (strokeDone) setHint(HINTS.good, "ok");
+  savePracticeProgress();
 }
 
 // 한 회차를 다 썼을 때. 설정한 횟수를 채우면 글자 완료.
@@ -469,9 +632,11 @@ async function finishLetter() {
     resetStrokes();
     renderRound();
     beginTrace();
+    savePracticeProgress();
     return;
   }
   store.markCompleted(state.letter);
+  resumeStore.clear("practice");
   setHint("완성!", "ok");
   const idx = LETTER_ORDER.indexOf(state.letter);
   const hasNext = idx < LETTER_ORDER.length - 1;
@@ -596,7 +761,30 @@ els.resetBtn.addEventListener("click", () => {
     renderMain();
   }
 });
-const game = setupGame({ onExit: showMain, bestStore });
+const game = setupGame({
+  onExit: showMain,
+  bestStore: { get: (l) => bestStore.get(l), update: (l, sc) => bestStore.update(l, sc) },
+  resume: { get: () => resumeStore.get("game"), set: (d) => resumeStore.set("game", d), clear: () => resumeStore.clear("game") },
+});
+els.profileChip.addEventListener("click", showProfileScreen);
+els.profileSave.addEventListener("click", saveProfileForm);
+els.profileName.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") saveProfileForm();
+});
+els.profileCancel.addEventListener("click", () => {
+  els.profileForm.hidden = true;
+  els.profileList.hidden = false;
+  if (profileStore.list().length === 0) openProfileForm();
+});
+els.resumePracticeBtn.addEventListener("click", () => {
+  const r = resumeStore.get("practice");
+  if (r && LETTERS[r.letter]) openLetter(r.letter, r);
+});
+// 앱을 벗어나거나 탭을 바꿀 때도 하던 곳을 저장
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) savePracticeProgress();
+});
+window.addEventListener("pagehide", savePracticeProgress);
 for (const btn of document.querySelectorAll("[data-go]")) {
   btn.addEventListener("click", () => {
     const go = btn.dataset.go;
@@ -612,5 +800,14 @@ window.addEventListener("resize", () => {
   if (!els.practice.hidden) resizeCanvas();
 });
 
-renderMain();
-if (!settings) openSettings(); // 첫 실행: 따라 쓰기 횟수부터 정한다
+// 시작: 참여자가 있으면 바로 대문, 없으면 참여자 만들기부터
+const startProfile = profileStore.current();
+if (startProfile) {
+  useProfile(startProfile);
+  renderMain();
+  showScreen("main");
+  if (!settings) openSettings();
+} else {
+  showProfileScreen();
+  if (profileStore.list().length === 0) openProfileForm();
+}
