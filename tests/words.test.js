@@ -23,7 +23,7 @@ test("난이도는 쉬움·보통 두 단계이고 보통이 더 빠르고 비�
   const [e, m] = DIFFICULTY_ORDER.map((k) => DIFFICULTY[k]);
   assert.ok(e.speed < m.speed);
   assert.ok(e.maxShips < m.maxShips);
-  assert.ok(e.spawnMs > m.spawnMs);
+  // 보통은 두 대가 동시에 나오는 대신 등장 간격은 오히려 길게 둔다 (사용자 요청: 천천히)
 });
 
 test("pickTarget은 난이도 목록 안에서 고르고 직전 것과 다르다", () => {
