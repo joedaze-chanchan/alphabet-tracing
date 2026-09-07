@@ -11,13 +11,13 @@ export const LETTERS_AZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 // speed: 초당 내려오는 거리 (하늘 높이 대비 비율). 0.035 → 약 28초 만에 바닥.
 // maxShips: 동시에 떠 있는 비행선 수. spawnMs: 새 비행선 등장 간격.
 // singleLetterRate: 단어 대신 글자 하나가 나올 확률.
+// 교육용이라 두 단계만 둔다. (WORDS.hard는 단어 따라쓰기 등에서 쓸 수 있게 남겨 둔다)
 export const DIFFICULTY = {
   easy: { key: "easy", label: "쉬움", desc: "글자 하나와 쉬운 단어 · 천천히 · 한 대씩", speed: 0.035, maxShips: 1, spawnMs: 5000, singleLetterRate: 0.5, words: WORDS.easy },
-  medium: { key: "medium", label: "보통", desc: "3~4글자 단어 · 보통 속도 · 두 대까지", speed: 0.055, maxShips: 2, spawnMs: 3500, singleLetterRate: 0, words: [...WORDS.easy, ...WORDS.medium] },
-  hard: { key: "hard", label: "어려움", desc: "4~5글자 단어 · 빠르게 · 세 대까지", speed: 0.08, maxShips: 3, spawnMs: 2500, singleLetterRate: 0, words: [...WORDS.medium, ...WORDS.hard] },
+  medium: { key: "medium", label: "보통", desc: "3~4글자 단어 · 조금 빠르게 · 두 대까지", speed: 0.05, maxShips: 2, spawnMs: 3800, singleLetterRate: 0, words: [...WORDS.easy, ...WORDS.medium] },
 };
 
-export const DIFFICULTY_ORDER = ["easy", "medium", "hard"];
+export const DIFFICULTY_ORDER = ["easy", "medium"];
 
 export const LIVES = 3;
 export const SCORE_PER_LETTER = 10;

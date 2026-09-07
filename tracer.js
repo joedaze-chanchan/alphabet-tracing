@@ -51,17 +51,24 @@ export function nearest(path, x, y, tMin = 0, tMax = 1) {
   return best;
 }
 
+export const CLOSED_EPS = 6; // 시작점과 끝점이 이보다 가까우면 닫힌 획(O, Q 등)으로 본다
+
 export class StrokeTracer {
   constructor(path, strokeWidth, radiusMargin = RADIUS_MARGIN) {
     this.path = path;
     this.radius = strokeWidth / 2 + radiusMargin;
     this.progress = 0;
     this.active = false;
+    const a = path[0];
+    const b = path[path.length - 1];
+    this.closed = Math.hypot(a.x - b.x, a.y - b.y) < CLOSED_EPS;
   }
 
   begin(x, y) {
-    const n = nearest(this.path, x, y);
-    if (!n || n.d > this.radius || n.t > START_ZONE) {
+    // 시작 구간 안에서만 가장 가까운 점을 찾는다. 닫힌 획은 끝점이 시작점 옆에 있어서
+    // 전체에서 찾으면 "끝점 근처 → 시작 오류"가 되기 때문.
+    const n = nearest(this.path, x, y, 0, START_ZONE);
+    if (!n || n.d > this.radius) {
       this.active = false;
       return { ok: false, reason: "start", progress: 0 };
     }
@@ -73,12 +80,20 @@ export class StrokeTracer {
   move(x, y) {
     if (!this.active) return { ok: false, reason: "inactive", progress: this.progress };
     const n = nearest(this.path, x, y, this.progress - WINDOW_BACK, this.progress + WINDOW_AHEAD);
-    if (!n || n.d > this.radius) {
-      this.active = false;
-      return { ok: false, reason: "off", progress: this.progress };
+    if (n && n.d <= this.radius) {
+      this.progress = Math.max(this.progress, n.t);
+      return { ok: true, progress: this.progress };
     }
-    this.progress = Math.max(this.progress, n.t);
-    return { ok: true, progress: this.progress };
+    // 닫힌 획을 거의 다 그린 뒤 시작점을 지나쳐 계속 도는 것은 정상 (아이들은 대개 조금 더 돈다)
+    if (this.closed && this.progress >= FINISH_ZONE) {
+      const wrap = nearest(this.path, x, y, 0, this.progress + WINDOW_AHEAD - 1);
+      if (wrap && wrap.d <= this.radius) {
+        this.progress = 1;
+        return { ok: true, progress: 1 };
+      }
+    }
+    this.active = false;
+    return { ok: false, reason: "off", progress: this.progress };
   }
 
   end() {

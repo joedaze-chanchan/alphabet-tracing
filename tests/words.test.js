@@ -18,11 +18,12 @@ test("단어 길이: 쉬움 3, 보통 4, 어려움 5", () => {
   assert.ok(WORDS.hard.every((w) => w.length === 5));
 });
 
-test("난이도가 올라갈수록 빠르고 비행선이 많다", () => {
-  const [e, m, h] = DIFFICULTY_ORDER.map((k) => DIFFICULTY[k]);
-  assert.ok(e.speed < m.speed && m.speed < h.speed);
-  assert.ok(e.maxShips <= m.maxShips && m.maxShips <= h.maxShips);
-  assert.ok(e.spawnMs > m.spawnMs && m.spawnMs > h.spawnMs);
+test("난이도는 쉬움·보통 두 단계이고 보통이 더 빠르고 비행선이 많다", () => {
+  assert.deepEqual(DIFFICULTY_ORDER, ["easy", "medium"]);
+  const [e, m] = DIFFICULTY_ORDER.map((k) => DIFFICULTY[k]);
+  assert.ok(e.speed < m.speed);
+  assert.ok(e.maxShips < m.maxShips);
+  assert.ok(e.spawnMs > m.spawnMs);
 });
 
 test("pickTarget은 난이도 목록 안에서 고르고 직전 것과 다르다", () => {
@@ -42,7 +43,7 @@ test("쉬움에서만 글자 하나짜리 목표가 나온다", () => {
   const seen = new Set();
   for (let i = 0; i < 300; i++) seen.add(pickTarget("easy").length);
   assert.ok(seen.has(1) && seen.has(3));
-  for (let i = 0; i < 100; i++) assert.ok(pickTarget("hard").length > 1);
+  for (let i = 0; i < 100; i++) assert.ok(pickTarget("medium").length > 1);
 });
 
 test("격추할수록 빨라지되 상한이 있다", () => {
