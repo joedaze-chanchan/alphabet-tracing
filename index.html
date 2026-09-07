@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#f6f3ea" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>알파벳 따라쓰기</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- 홈 화면 -->
+  <section id="home" class="screen">
+    <header class="home-header">
+      <h1>알파벳 따라쓰기</h1>
+      <p class="sub">글자를 고르고 획순대로 따라 써 보세요</p>
+    </header>
+    <div id="letter-grid" class="letter-grid"></div>
+    <footer class="home-footer">
+      <button id="reset-btn" class="text-btn" type="button">기록 지우기</button>
+    </footer>
+  </section>
+
+  <!-- 연습 화면 -->
+  <section id="practice" class="screen" hidden>
+    <header class="practice-header">
+      <button id="back-btn" class="icon-btn" type="button" aria-label="홈으로">‹</button>
+      <div id="stroke-dots" class="stroke-dots" aria-label="획 진행"></div>
+      <button id="demo-btn" class="icon-btn" type="button" aria-label="시범 다시 보기">▶</button>
+    </header>
+
+    <div class="canvas-wrap">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <p id="hint" class="hint">시범을 잘 보세요</p>
+
+    <div id="done" class="done" hidden>
+      <div class="done-card">
+        <div class="done-star">★</div>
+        <p id="done-text">잘했어요!</p>
+        <div class="done-actions">
+          <button id="again-btn" class="btn ghost" type="button">다시 쓰기</button>
+          <button id="next-btn" class="btn primary" type="button">다음 글자</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
