@@ -1,6 +1,6 @@
 import { LETTERS, LETTER_ORDER, STROKE_WIDTH } from "./letters.js";
 import { LetterTracer } from "./tracer.js";
-import { ProgressStore } from "./progress.js";
+import { ProgressStore, SettingsStore, DEFAULT_SETTINGS } from "./progress.js";
 
 const COLORS = {
   outline: "#b9b3a6",
@@ -27,6 +27,9 @@ const HINTS = {
   replay: "시범을 다시 보여 줄게요",
 };
 
+const REPEAT_CHOICES = [1, 2, 3, 4, 5];
+const ROUND_PAUSE = 1100; // 한 번 다 쓴 뒤 다음 회차로 넘어가기 전 멈춤 (ms)
+
 const $ = (id) => document.getElementById(id);
 const els = {
   home: $("home"),
@@ -42,9 +45,21 @@ const els = {
   doneText: $("done-text"),
   againBtn: $("again-btn"),
   nextBtn: $("next-btn"),
+  roundLabel: $("round-label"),
+  infoLetter: $("info-letter"),
+  infoKo: $("info-ko"),
+  infoPhonics: $("info-phonics"),
+  speakBtn: $("speak-btn"),
+  settings: $("settings"),
+  settingsBtn: $("settings-btn"),
+  settingsRepeat: $("settings-repeat"),
+  repeatOptions: $("repeat-options"),
+  settingsSave: $("settings-save"),
 };
 
 const store = new ProgressStore();
+const settingsStore = new SettingsStore();
+let settings = settingsStore.load(); // null이면 첫 실행
 const ctx = els.canvas.getContext("2d");
 
 const state = {
@@ -58,13 +73,72 @@ const state = {
   demoProgress: null, // 시범 중: { index, t }
   wrongStreak: 0,
   wrongsTotal: 0,
+  round: 1, // 현재 몇 번째 따라 쓰기인지 (1부터)
   demoToken: 0,
   raf: 0,
 };
 
+// ---------- 설정 (따라 쓰기 횟수) ----------
+
+let pendingRepeat = DEFAULT_SETTINGS.repeat;
+
+function openSettings() {
+  pendingRepeat = settings ? settings.repeat : DEFAULT_SETTINGS.repeat;
+  els.repeatOptions.innerHTML = "";
+  for (const n of REPEAT_CHOICES) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "repeat-opt" + (n === pendingRepeat ? " selected" : "");
+    b.textContent = String(n);
+    b.addEventListener("click", () => {
+      pendingRepeat = n;
+      for (const el of els.repeatOptions.children) el.classList.toggle("selected", Number(el.textContent) === n);
+    });
+    els.repeatOptions.appendChild(b);
+  }
+  els.settingsSave.textContent = settings ? "저장" : "시작하기";
+  els.settings.hidden = false;
+}
+
+function saveSettings() {
+  settings = { ...DEFAULT_SETTINGS, ...(settings || {}), repeat: pendingRepeat };
+  settingsStore.save(settings);
+  els.settings.hidden = true;
+  renderHome();
+}
+
+// ---------- 발음 ----------
+
+function speak(letter) {
+  if (!("speechSynthesis" in window)) return;
+  const info = LETTERS[letter];
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(`${letter}. ${letter}. ${info.word}.`);
+    u.lang = "en-US";
+    u.rate = 0.85;
+    window.speechSynthesis.speak(u);
+  } catch {
+    // 음성 미지원 브라우저는 무시
+  }
+}
+
+function renderInfo(letter) {
+  const info = LETTERS[letter];
+  els.infoLetter.textContent = letter;
+  els.infoKo.textContent = info.ko;
+  els.infoPhonics.innerHTML =
+    `파닉스 소리 <b>[${info.sound}]</b> · <span class="en">${info.word}</span> ${info.wordKo} (${info.meaning})`;
+}
+
+function renderRound() {
+  els.roundLabel.textContent = `${state.round}/${settings.repeat}번째`;
+}
+
 // ---------- 홈 ----------
 
 function renderHome() {
+  els.settingsRepeat.textContent = String(settings ? settings.repeat : DEFAULT_SETTINGS.repeat);
   els.grid.innerHTML = "";
   for (const letter of LETTER_ORDER) {
     const btn = document.createElement("button");
@@ -96,15 +170,16 @@ function showHome() {
 
 function openLetter(letter) {
   state.letter = letter;
-  state.lt = new LetterTracer(LETTERS[letter], STROKE_WIDTH);
-  state.paths = state.lt.paths;
-  state.strokeIndex = 0;
   state.wrongStreak = 0;
   state.wrongsTotal = 0;
-  state.liveProgress = 0;
+  state.round = 1;
+  resetStrokes();
   els.done.hidden = true;
   els.home.hidden = true;
   els.practice.hidden = false;
+  renderInfo(letter);
+  renderRound();
+  speak(letter);
   resizeCanvas();
   renderDots();
   setHint(HINTS.watch);
@@ -112,6 +187,14 @@ function openLetter(letter) {
   runDemo().then((finished) => {
     if (finished) beginTrace();
   });
+}
+
+// 획 판정을 처음부터 (새 회차 시작 시)
+function resetStrokes() {
+  state.lt = new LetterTracer(LETTERS[state.letter], STROKE_WIDTH);
+  state.paths = state.lt.paths;
+  state.strokeIndex = 0;
+  state.liveProgress = 0;
 }
 
 function beginTrace() {
@@ -295,17 +378,31 @@ function succeed(strokeDone) {
   if (strokeDone) setHint(HINTS.good, "ok");
 }
 
-function finishLetter() {
+// 한 회차를 다 썼을 때. 설정한 횟수를 채우면 글자 완료.
+async function finishLetter() {
   state.mode = "done";
   state.liveProgress = 0;
   renderDots();
   store.recordAttempt(state.letter, state.wrongsTotal);
+  if (state.round < settings.repeat) {
+    const nextRound = state.round + 1;
+    setHint(`잘했어요! ${nextRound}번째 써 볼까요`, "ok");
+    const letter = state.letter;
+    await sleep(ROUND_PAUSE);
+    if (state.mode !== "done" || state.letter !== letter) return;
+    state.round = nextRound;
+    resetStrokes();
+    renderRound();
+    beginTrace();
+    return;
+  }
   store.markCompleted(state.letter);
   setHint("완성!", "ok");
   const idx = LETTER_ORDER.indexOf(state.letter);
   const hasNext = idx < LETTER_ORDER.length - 1;
+  const times = settings.repeat > 1 ? `${settings.repeat}번 다 썼어요. ` : "";
   els.doneText.textContent =
-    state.wrongsTotal === 0 ? `${state.letter} 완성! 한 번도 안 틀렸어요` : `${state.letter} 완성! 틀린 횟수 ${state.wrongsTotal}번`;
+    state.wrongsTotal === 0 ? `${state.letter} 완성! ${times}한 번도 안 틀렸어요` : `${state.letter} 완성! ${times}틀린 횟수 ${state.wrongsTotal}번`;
   els.nextBtn.textContent = hasNext ? "다음 글자" : "홈으로";
   els.done.hidden = false;
 }
@@ -415,6 +512,9 @@ els.nextBtn.addEventListener("click", () => {
   if (idx < LETTER_ORDER.length - 1) openLetter(LETTER_ORDER[idx + 1]);
   else showHome();
 });
+els.speakBtn.addEventListener("click", () => speak(state.letter));
+els.settingsBtn.addEventListener("click", openSettings);
+els.settingsSave.addEventListener("click", saveSettings);
 els.resetBtn.addEventListener("click", () => {
   if (confirm("학습 기록을 모두 지울까요?")) {
     store.reset();
@@ -426,3 +526,4 @@ window.addEventListener("resize", () => {
 });
 
 renderHome();
+if (!settings) openSettings(); // 첫 실행: 따라 쓰기 횟수부터 정한다

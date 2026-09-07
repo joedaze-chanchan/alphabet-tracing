@@ -17,10 +17,10 @@ npm test
 | 파일 | 역할 |
 |---|---|
 | `index.html`, `style.css` | 홈/연습 화면 레이아웃 |
-| `letters.js` | 글자별 획 데이터 (100×100 좌표, 획 = 점 목록) |
+| `letters.js` | 글자별 획 데이터(100×100 좌표) + 한글 읽기·파닉스 소리·예시 단어 |
 | `tracer.js` | 획 판정 엔진 (순수 함수) |
 | `app.js` | 화면 전환, 캔버스 렌더링, 시범 애니메이션, 터치 처리 |
-| `progress.js` | 학습 기록 저장 (localStorage) |
+| `progress.js` | 학습 기록·설정(따라 쓰기 횟수) 저장 (localStorage) |
 | `tests/tracer.test.js` | 판정 엔진·획 데이터 테스트 |
 
 설계 문서: `docs/superpowers/specs/2026-09-07-alphabet-tracing-design.md`

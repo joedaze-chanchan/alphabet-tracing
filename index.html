@@ -17,17 +17,40 @@
     </header>
     <div id="letter-grid" class="letter-grid"></div>
     <footer class="home-footer">
+      <button id="settings-btn" class="text-btn" type="button">따라 쓰기 횟수: <b id="settings-repeat">3</b>번 · 변경</button>
       <button id="reset-btn" class="text-btn" type="button">기록 지우기</button>
     </footer>
+
+    <!-- 첫 실행 설정 -->
+    <div id="settings" class="modal" hidden>
+      <div class="modal-card">
+        <h2>한 글자를 몇 번씩 따라 쓸까요?</h2>
+        <p class="modal-sub">글자마다 이 횟수만큼 따라 써야 완성됩니다. 나중에 홈 화면에서 바꿀 수 있어요.</p>
+        <div id="repeat-options" class="repeat-options"></div>
+        <button id="settings-save" class="btn primary" type="button">시작하기</button>
+      </div>
+    </div>
   </section>
 
   <!-- 연습 화면 -->
   <section id="practice" class="screen" hidden>
     <header class="practice-header">
       <button id="back-btn" class="icon-btn" type="button" aria-label="홈으로">‹</button>
-      <div id="stroke-dots" class="stroke-dots" aria-label="획 진행"></div>
+      <div class="header-center">
+        <div id="stroke-dots" class="stroke-dots" aria-label="획 진행"></div>
+        <div id="round-label" class="round-label">1/3번째</div>
+      </div>
       <button id="demo-btn" class="icon-btn" type="button" aria-label="시범 다시 보기">▶</button>
     </header>
+
+    <div class="letter-info">
+      <div class="letter-name">
+        <span id="info-letter" class="big">A</span>
+        <span id="info-ko" class="ko">에이</span>
+        <button id="speak-btn" class="speak-btn" type="button" aria-label="발음 듣기">🔊</button>
+      </div>
+      <div id="info-phonics" class="phonics"></div>
+    </div>
 
     <div class="canvas-wrap">
       <canvas id="canvas"></canvas>

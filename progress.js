@@ -1,6 +1,9 @@
 // 학습 기록 저장소. 지금은 localStorage. 서버로 바꿀 때 이 파일만 교체한다.
 
 const KEY = "abc-trace-progress";
+const KEY_SETTINGS = "abc-trace-settings";
+
+export const DEFAULT_SETTINGS = { repeat: 3 }; // 한 글자를 따라 쓰는 횟수
 
 export class ProgressStore {
   constructor(storage = globalThis.localStorage) {
@@ -51,5 +54,29 @@ export class ProgressStore {
 
   reset() {
     this.save({});
+  }
+}
+
+// 설정 저장소. 처음 실행 여부는 저장된 설정이 있는지로 판단한다.
+export class SettingsStore {
+  constructor(storage = globalThis.localStorage) {
+    this.storage = storage;
+  }
+
+  load() {
+    try {
+      const raw = this.storage && this.storage.getItem(KEY_SETTINGS);
+      return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  save(settings) {
+    try {
+      this.storage && this.storage.setItem(KEY_SETTINGS, JSON.stringify(settings));
+    } catch {
+      // 저장 실패는 무시
+    }
   }
 }

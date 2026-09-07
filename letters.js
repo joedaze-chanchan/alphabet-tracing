@@ -1,6 +1,7 @@
 // 글자별 획 데이터. 좌표계 0~100, y는 아래 방향.
 // 각 획은 중심선 점 목록. 획순은 배열 순서, 방향은 점 순서.
 // joins: 손을 떼지 않고 다음 획으로 이어 써도 되는 획의 번호(0부터). 예: B의 두 굽은 획.
+// ko: 글자 이름 한글 읽기, sound: 파닉스 소리, word/wordKo/meaning: 예시 단어와 읽기·뜻.
 
 export const STROKE_WIDTH = 16;
 
@@ -32,6 +33,9 @@ function join(...parts) {
 
 export const LETTERS = {
   A: {
+    ko: "에이", // 글자 이름 읽기
+    sound: "애", // 파닉스 소리
+    word: "apple", wordKo: "애플", meaning: "사과", // 예시 단어
     strokes: [
       [[50, 8], [14, 92]],
       [[50, 8], [86, 92]],
@@ -39,6 +43,9 @@ export const LETTERS = {
     ],
   },
   B: {
+    ko: "비", // 글자 이름 읽기
+    sound: "브", // 파닉스 소리
+    word: "ball", wordKo: "볼", meaning: "공", // 예시 단어
     joins: [1],
     strokes: [
       [[22, 8], [22, 92]],
@@ -47,18 +54,27 @@ export const LETTERS = {
     ],
   },
   C: {
+    ko: "씨", // 글자 이름 읽기
+    sound: "크", // 파닉스 소리
+    word: "cat", wordKo: "캣", meaning: "고양이", // 예시 단어
     strokes: [
       // 오른쪽 위에서 시작해 위쪽·왼쪽을 지나 오른쪽 아래로 (반시계 방향)
       arc(52, 50, 36, 42, -45, -315, 40),
     ],
   },
   D: {
+    ko: "디", // 글자 이름 읽기
+    sound: "드", // 파닉스 소리
+    word: "dog", wordKo: "도그", meaning: "개", // 예시 단어
     strokes: [
       [[22, 8], [22, 92]],
       join([[22, 8], [44, 8]], arc(44, 50, 36, 42, -90, 90, 32), [[22, 92]]),
     ],
   },
   E: {
+    ko: "이", // 글자 이름 읽기
+    sound: "에", // 파닉스 소리
+    word: "egg", wordKo: "에그", meaning: "달걀", // 예시 단어
     strokes: [
       [[22, 8], [22, 92]],
       [[22, 8], [80, 8]],
@@ -67,6 +83,9 @@ export const LETTERS = {
     ],
   },
   F: {
+    ko: "에프", // 글자 이름 읽기
+    sound: "프", // 파닉스 소리
+    word: "fish", wordKo: "피쉬", meaning: "물고기", // 예시 단어
     strokes: [
       [[22, 8], [22, 92]],
       [[22, 8], [80, 8]],
