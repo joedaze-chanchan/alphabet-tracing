@@ -1,5 +1,5 @@
 import { LETTERS, LETTER_ORDER, STROKE_WIDTH } from "./letters.js";
-import { buildPath, StrokeTracer } from "./tracer.js";
+import { LetterTracer } from "./tracer.js";
 import { ProgressStore } from "./progress.js";
 
 const COLORS = {
@@ -19,6 +19,7 @@ const MAX_WRONG_STREAK = 3;
 const HINTS = {
   watch: "시범을 잘 보세요",
   trace: "파란 점에서 시작해 따라 써 보세요",
+  traceJoin: "파란 점에서 시작해 따라 써 보세요. 굽은 획은 이어 써도 돼요",
   good: "좋아요! 다음 획",
   start: "파란 점에서 시작하세요",
   off: "선 밖으로 나갔어요. 획을 따라 그리세요",
@@ -48,10 +49,10 @@ const ctx = els.canvas.getContext("2d");
 
 const state = {
   letter: null,
+  lt: null, // LetterTracer (획 순서·이어 쓰기 판정)
   paths: [], // 획별 재표본 경로
-  strokeIndex: 0,
-  mode: "idle", // idle | demo | trace | done
-  tracer: null,
+  strokeIndex: 0, // 완료한 획 수 (= lt.index, 렌더링용)
+  mode: "idle", // idle | demo | trace | wrong | done
   liveProgress: 0, // 현재 그리는 획의 진행도
   liveColor: COLORS.user,
   demoProgress: null, // 시범 중: { index, t }
@@ -95,12 +96,12 @@ function showHome() {
 
 function openLetter(letter) {
   state.letter = letter;
-  state.paths = LETTERS[letter].strokes.map((s) => buildPath(s, 1));
+  state.lt = new LetterTracer(LETTERS[letter], STROKE_WIDTH);
+  state.paths = state.lt.paths;
   state.strokeIndex = 0;
   state.wrongStreak = 0;
   state.wrongsTotal = 0;
   state.liveProgress = 0;
-  state.tracer = null;
   els.done.hidden = true;
   els.home.hidden = true;
   els.practice.hidden = false;
@@ -115,11 +116,12 @@ function openLetter(letter) {
 
 function beginTrace() {
   state.mode = "trace";
-  state.tracer = new StrokeTracer(state.paths[state.strokeIndex], STROKE_WIDTH);
+  state.lt.startStroke();
+  state.strokeIndex = state.lt.index;
   state.liveProgress = 0;
   state.liveColor = COLORS.user;
   renderDots();
-  setHint(HINTS.trace);
+  setHint(LETTERS[state.letter].joins ? HINTS.traceJoin : HINTS.trace);
 }
 
 function setHint(text, kind = "") {
@@ -207,7 +209,7 @@ function onPointerDown(e) {
     // 합성 이벤트 등 캡처 불가 시 무시
   }
   const [x, y] = toLetterCoords(e);
-  const r = state.tracer.begin(x, y);
+  const r = state.lt.begin(x, y);
   if (!r.ok) {
     releasePointer();
     fail(r.reason, 0);
@@ -221,22 +223,36 @@ function onPointerMove(e) {
   if (state.mode !== "trace" || e.pointerId !== pointerId) return;
   e.preventDefault();
   const [x, y] = toLetterCoords(e);
-  const r = state.tracer.move(x, y);
+  const r = state.lt.move(x, y);
+  state.strokeIndex = state.lt.index;
   if (!r.ok) {
     releasePointer();
     fail(r.reason, r.progress);
     return;
   }
   state.liveProgress = r.progress;
+  if (r.chained) {
+    // 손을 떼지 않고 다음 획으로 이어 씀: 앞 획은 완료 처리
+    renderDots();
+    setHint(HINTS.good, "ok");
+  }
 }
 
 function onPointerUp(e) {
   if (state.mode !== "trace" || e.pointerId !== pointerId) return;
   e.preventDefault();
   releasePointer();
-  const r = state.tracer.end();
-  if (r.ok) succeed();
-  else fail(r.reason, r.progress);
+  const r = state.lt.end();
+  state.strokeIndex = state.lt.index;
+  if (!r.ok) {
+    fail(r.reason, r.progress);
+    return;
+  }
+  if (r.letterDone) {
+    finishLetter();
+    return;
+  }
+  succeed(r.strokeDone);
 }
 
 function releasePointer() {
@@ -271,21 +287,17 @@ async function fail(reason, progress) {
   beginTrace();
 }
 
-function succeed() {
+// 획을 완료했거나(strokeDone) 이어 쓰기 후 다음 획을 새로 시작할 때
+function succeed(strokeDone) {
   state.wrongStreak = 0;
-  state.strokeIndex++;
   state.liveProgress = 0;
-  if (state.strokeIndex >= state.paths.length) {
-    finishLetter();
-    return;
-  }
-  setHint(HINTS.good, "ok");
   beginTrace();
-  setHint(HINTS.good, "ok");
+  if (strokeDone) setHint(HINTS.good, "ok");
 }
 
 function finishLetter() {
   state.mode = "done";
+  state.liveProgress = 0;
   renderDots();
   store.recordAttempt(state.letter, state.wrongsTotal);
   store.markCompleted(state.letter);

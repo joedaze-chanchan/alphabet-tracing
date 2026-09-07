@@ -88,3 +88,88 @@ export class StrokeTracer {
     return { ok: false, reason: "short", progress: this.progress };
   }
 }
+
+// ---------- 글자 단위 판정 (획 순서 + 이어 쓰기) ----------
+
+export const CHAIN_MIN_PROGRESS = 0.2; // 이어 쓴 다음 획이 이 진행도 미만이면 "아직 시작 안 함"으로 본다
+
+// 글자 하나의 획 순서를 관리한다. joins에 든 획은 손을 떼지 않고 다음 획으로 이어 써도 된다.
+//
+//   const lt = new LetterTracer(LETTERS.B, STROKE_WIDTH);
+//   lt.begin(x, y) -> { ok, reason?, progress }
+//   lt.move(x, y)  -> { ok, reason?, progress, chained? }   chained: 이번 이동에서 다음 획으로 넘어감
+//   lt.end()       -> { ok, reason?, progress, strokeDone, letterDone, restarted? }
+//                     strokeDone: 이번 터치로 완료된 획이 하나라도 있음
+//                     restarted: 이어 쓰기로 넘어간 다음 획을 거의 안 그리고 떼서 그 획을 처음부터 다시 시작
+export class LetterTracer {
+  constructor(letter, strokeWidth) {
+    this.paths = letter.strokes.map((s) => buildPath(s, 1));
+    this.joins = new Set(letter.joins || []);
+    this.strokeWidth = strokeWidth;
+    this.index = 0;
+    this.startStroke();
+  }
+
+  get strokeCount() {
+    return this.paths.length;
+  }
+
+  get progress() {
+    return this.tracer.progress;
+  }
+
+  get done() {
+    return this.index >= this.paths.length;
+  }
+
+  // 현재 획의 판정기를 새로 만든다 (오답 재시도, 다음 획 진입 시).
+  startStroke() {
+    this.tracer = this.done ? null : new StrokeTracer(this.paths[this.index], this.strokeWidth);
+    this.chained = false;
+    this.detached = false;
+  }
+
+  begin(x, y) {
+    this.chained = false;
+    this.detached = false;
+    this.touchStartIndex = this.index;
+    return this.tracer.begin(x, y);
+  }
+
+  move(x, y) {
+    if (this.detached) return { ok: true, progress: this.tracer.progress };
+
+    // 이어 쓰기: 현재 획을 충분히 그렸고 다음 획으로 이어도 되는 획이면, 손가락이 다음 획 시작 구간에
+    // 들어온 순간 다음 획 판정으로 넘어간다.
+    if (!this.chained && this.joins.has(this.index) && this.index + 1 < this.paths.length && this.tracer.progress >= FINISH_ZONE) {
+      const next = new StrokeTracer(this.paths[this.index + 1], this.strokeWidth);
+      if (next.begin(x, y).ok) {
+        this.index++;
+        this.tracer = next;
+        this.chained = true;
+        return { ok: true, progress: next.progress, chained: true };
+      }
+    }
+
+    const r = this.tracer.move(x, y);
+    if (!r.ok && this.chained && r.progress < CHAIN_MIN_PROGRESS) {
+      // 이어 쓰기로 넘어온 직후 살짝 벗어난 것은 오답이 아니다. 손을 뗄 때까지 무시한다.
+      this.detached = true;
+      return { ok: true, progress: r.progress };
+    }
+    return r;
+  }
+
+  end() {
+    if (this.chained && this.tracer.progress < CHAIN_MIN_PROGRESS) {
+      // 앞 획은 이미 완료. 다음 획은 사실상 시작 안 했으니 처음부터 다시.
+      this.startStroke();
+      return { ok: true, progress: 0, strokeDone: this.index > this.touchStartIndex, letterDone: false, restarted: true };
+    }
+    const r = this.tracer.end();
+    if (!r.ok) return { ...r, strokeDone: this.index > this.touchStartIndex, letterDone: false };
+    this.index++;
+    this.startStroke();
+    return { ok: true, progress: r.progress, strokeDone: true, letterDone: this.done };
+  }
+}
