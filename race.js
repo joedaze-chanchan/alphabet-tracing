@@ -11,6 +11,9 @@ import {
   GAP_BEFORE_FORK,
   FORK_LENGTH,
   REST_AFTER,
+  MERGE_LENGTH,
+  RAMP_LENGTH,
+  CURVE_DRIFT,
   SCORE_PER_SIGN,
   RACE_DIFFICULTY,
   RACE_DIFFICULTY_ORDER,
@@ -135,6 +138,8 @@ export function setupRace({ onExit, bestStore, resume }) {
       steer: 0, // -1 | 0 | 1
       dist: 0, // 달린 거리 (도로 단위)
       q: null, // 현재 문제 { ..., z: 간판까지 남은 거리 }
+      fork: null, // 네 갈래 길 { signZ: 간판까지 거리 (지나면 음수) } — 문제를 맞힌 뒤에도 길이 합쳐질 때까지 남는다
+      prevK: 1, // 차선 수렴 비율 (차를 차선과 함께 가운데로 흘려보내기 위해)
       nextQAt: 40, // 다음 문제가 뜨는 거리
       state: "drive", // drive | fall | shatter
       stateUntil: 0,
@@ -185,6 +190,13 @@ export function setupRace({ onExit, bestStore, resume }) {
     g.dir = g.dir === "en2ko" ? "ko2en" : "en2ko";
     q.z = GAP_BEFORE_FORK + FORK_LENGTH; // 간판까지 거리
     g.q = q;
+    g.fork = { signZ: q.z };
+    g.prevK = 1;
+    // 코너 중에 네 갈래가 나오면 더 박진감이 있다
+    if (Math.random() < 0.7) {
+      g.curveTarget = (Math.random() < 0.5 ? -1 : 1) * (0.55 + Math.random() * 0.4);
+      g.nextCurveAt = g.dist + GAP_BEFORE_FORK + FORK_LENGTH + 30;
+    }
     els.promptWord.textContent = q.prompt;
     els.promptWord.classList.toggle("ko", q.dir === "ko2en");
     els.promptQ.textContent = q.question;
@@ -201,10 +213,11 @@ export function setupRace({ onExit, bestStore, resume }) {
 
     // 커브: 가끔 방향을 바꾼다 (보기용)
     if (g.dist >= g.nextCurveAt) {
-      g.curveTarget = (Math.random() - 0.5) * 0.8;
-      g.nextCurveAt = g.dist + 60 + Math.random() * 60;
+      const r = Math.random();
+      g.curveTarget = r < 0.3 ? 0 : (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.6);
+      g.nextCurveAt = g.dist + 50 + Math.random() * 70;
     }
-    g.curve += (g.curveTarget - g.curve) * Math.min(1, dt * 0.8);
+    g.curve += (g.curveTarget - g.curve) * Math.min(1, dt * 0.7);
 
     if (g.state === "fall") {
       if (now >= g.stateUntil) afterFall();
@@ -221,10 +234,22 @@ export function setupRace({ onExit, bestStore, resume }) {
       g.nextPropAt = g.dist + 6 + Math.random() * 8;
     }
 
-    // 조작
-    const limit = g.q && g.q.z < FORK_LENGTH + 6 ? FORK_LIMIT : ROAD_LIMIT;
+    // 갈림길: 간판을 지나도 길이 합쳐질 때까지 남아 있다
+    if (g.fork) {
+      g.fork.signZ -= advance;
+      if (g.fork.signZ < -MERGE_LENGTH - 4) {
+        g.fork = null;
+        g.prevK = 1;
+      }
+    }
+
+    // 조작. 네 길이 모이는 동안은 차도 자기 차선과 함께 가운데로 흘러간다.
+    const road0 = roadAt(0);
+    if (road0.k < g.prevK) g.x *= road0.k / g.prevK;
+    g.prevK = road0.k;
     g.x += g.steer * STEER_SPEED * dt;
-    g.x = Math.max(-limit, Math.min(limit, g.x));
+    g.x -= g.curve * CURVE_DRIFT * dt; // 커브에서는 바깥으로 밀린다
+    g.x = Math.max(-road0.hw, Math.min(road0.hw, g.x));
     g.tilt += (g.steer * 0.18 - g.tilt) * Math.min(1, dt * 8);
 
     if (g.state === "shatter" && now >= g.stateUntil) {
@@ -240,6 +265,25 @@ export function setupRace({ onExit, bestStore, resume }) {
     }
   }
 
+  // 거리 z 지점의 도로 모양. hw: 반폭, k: 차선 벌어짐 비율(1 = 완전히 갈라짐), laneHalf: 차선 반폭
+  function roadAt(z) {
+    const f = g.fork;
+    if (!f) return { hw: ROAD_LIMIT, k: 1, laneHalf: 0, forked: false };
+    const dz = z - f.signZ; // 간판 기준 (음수 = 간판 앞, 양수 = 간판 지남)
+    let hw = ROAD_LIMIT;
+    let mergeT = 0;
+    if (dz >= -FORK_LENGTH && dz <= 0) hw = FORK_LIMIT;
+    else if (dz < -FORK_LENGTH && dz >= -FORK_LENGTH - RAMP_LENGTH) hw = ROAD_LIMIT + (FORK_LIMIT - ROAD_LIMIT) * ((dz + FORK_LENGTH + RAMP_LENGTH) / RAMP_LENGTH);
+    else if (dz > 0 && dz <= MERGE_LENGTH) {
+      mergeT = dz / MERGE_LENGTH;
+      hw = FORK_LIMIT + (ROAD_LIMIT - FORK_LIMIT) * mergeT;
+    }
+    const k = hw / FORK_LIMIT;
+    // 모이는 동안은 차선 사이 풀밭이 사라지며 이어 붙는다
+    const laneHalf = k * (0.62 + 0.13 * mergeT);
+    return { hw, k, laneHalf, forked: hw > ROAD_LIMIT + 0.01 };
+  }
+
   function judge(now) {
     const q = g.q;
     const lane = laneFromX(g.x);
@@ -251,7 +295,7 @@ export function setupRace({ onExit, bestStore, resume }) {
       g.shatter = { lane, seed: Math.random() * 100, start: now };
       setMsg(`정답! ${q.signs[q.answer]} 통과 +${SCORE_PER_SIGN}점`, "ok");
       renderHud();
-      g.q = null;
+      g.q = null; // 길(fork)은 합쳐질 때까지 남는다
       g.nextQAt = g.dist + REST_AFTER;
       els.prompt.hidden = true;
       saveState();
@@ -267,6 +311,8 @@ export function setupRace({ onExit, bestStore, resume }) {
   function afterFall() {
     g.lives -= 1;
     g.q = null;
+    g.fork = null;
+    g.prevK = 1;
     g.x = 0;
     g.state = "drive";
     g.nextQAt = g.dist + REST_AFTER;
@@ -310,26 +356,14 @@ export function setupRace({ onExit, bestStore, resume }) {
     const s = Z_NEAR / (z + Z_NEAR); // 가까울수록 1, 멀수록 0
     const camX = g.x; // 카메라가 차를 따라간다
     const roadHalf = w * 0.42;
-    const curveShift = g.curve * z * z * 0.045;
-    const sx = w / 2 + (x - camX * 0.85) * roadHalf * s + curveShift * s;
+    const curveShift = g.curve * z * z * 0.022; // 화면 픽셀. 멀수록 크게 휜다
+    const sx = w / 2 + (x - camX * 0.85) * roadHalf * s + curveShift;
     const sy = horizon + (h - horizon) * s;
     return { x: sx, y: sy, s };
   }
 
   function halfWidthAt(z) {
-    // 네 갈래 구간에서는 도로가 두 배로 넓어진다
-    const q = g.q;
-    if (!q) return ROAD_LIMIT;
-    const dz = q.z - z; // 이 지점이 간판보다 얼마나 앞(카메라 쪽)인지. z=q.z가 간판.
-    // z가 [q.z - FORK_LENGTH, q.z] 사이면 네 갈래
-    if (z >= q.z - FORK_LENGTH && z <= q.z + 2) return FORK_LIMIT;
-    // 그 앞 6단위는 서서히 넓어짐
-    if (z >= q.z - FORK_LENGTH - 6 && z < q.z - FORK_LENGTH) {
-      const t = (z - (q.z - FORK_LENGTH - 6)) / 6;
-      return ROAD_LIMIT + (FORK_LIMIT - ROAD_LIMIT) * t;
-    }
-    void dz;
-    return ROAD_LIMIT;
+    return roadAt(z).hw;
   }
 
   // ---------- 그리기 ----------
@@ -391,17 +425,18 @@ export function setupRace({ onExit, bestStore, resume }) {
     };
     for (let i = steps; i >= 0; i--) {
       const z = (i / steps) ** 2 * DRAW_DEPTH;
-      const hw = halfWidthAt(z);
-      const cur = { z, hw, at: (x) => project(x, z) };
+      const road = roadAt(z);
+      const hw = road.hw;
+      const cur = { z, hw, laneHalf: road.laneHalf, k: road.k, at: (x) => project(x, z) };
       if (prev) {
         const band = Math.floor((z + g.dist) / 4) % 2 === 0;
         const asphalt = band ? "#475569" : "#52525b";
         const stripe = band ? "#f8fafc" : "#ef4444";
         const edge = 0.07; // 가장자리 줄 너비 (도로 단위)
         if (hw > ROAD_LIMIT + 0.01) {
-          // 네 갈래: 길 네 개가 갈라진다 (사이는 풀밭 = 낭떠러지)
-          const k = hw / FORK_LIMIT;
-          const laneHalf = 0.62 * k;
+          // 네 갈래: 길 네 개가 갈라진다 (사이는 풀밭 = 낭떠러지). 지난 뒤에는 서서히 하나로 모인다.
+          const k = cur.k;
+          const laneHalf = cur.laneHalf;
           for (let n = 0; n < LANES; n++) {
             const c = LANE_CENTERS[n] * k;
             const laneStripe = band ? LANE_COLORS[n] : "#f8fafc";

@@ -20,7 +20,10 @@ export const STEER_SPEED = 3.4; // 초당 좌우 이동 (도로 단위)
 // 문제 사이 거리와 네 갈래 구간 길이 (도로 단위)
 export const GAP_BEFORE_FORK = 55; // 단어가 뜬 뒤 갈라지는 지점까지 거리
 export const FORK_LENGTH = 45; // 네 갈래 길이 (간판은 그 끝)
-export const REST_AFTER = 25; // 통과 후 다음 문제까지
+export const MERGE_LENGTH = 40; // 간판을 지난 뒤 네 길이 다시 하나로 모이는 구간
+export const RAMP_LENGTH = 10; // 갈라지기 시작하는 구간
+export const REST_AFTER = 45; // 통과 후 다음 문제까지 (합쳐지는 구간 포함)
+export const CURVE_DRIFT = 0.35; // 커브에서 차가 바깥으로 밀리는 정도 (약하게: 핸들을 조금만 잡으면 된다)
 
 export const SCORE_PER_SIGN = 10;
 
