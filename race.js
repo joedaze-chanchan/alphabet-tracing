@@ -14,6 +14,7 @@ import {
   SCORE_PER_SIGN,
   RACE_DIFFICULTY,
   RACE_DIFFICULTY_ORDER,
+  LANE_COLORS,
   makeQuestion,
   laneFromX,
   speedFor,
@@ -23,7 +24,7 @@ const $ = (id) => document.getElementById(id);
 
 const FALL_MS = 1400;
 const SHATTER_MS = 700;
-const Z_NEAR = 1.2; // 투영용 카메라 거리
+const Z_NEAR = 2.6; // 투영용 카메라 거리 (클수록 원근이 완만해 먼 것이 크게 보인다)
 const DRAW_DEPTH = 130; // 그리는 최대 거리 (도로 단위)
 
 export function setupRace({ onExit, bestStore, resume }) {
@@ -44,6 +45,7 @@ export function setupRace({ onExit, bestStore, resume }) {
     prompt: $("race-prompt"),
     promptWord: $("race-prompt-word"),
     promptQ: $("race-prompt-q"),
+    choices: $("race-choices"),
     msg: $("race-msg"),
     left: $("race-left"),
     right: $("race-right"),
@@ -186,6 +188,9 @@ export function setupRace({ onExit, bestStore, resume }) {
     els.promptWord.textContent = q.prompt;
     els.promptWord.classList.toggle("ko", q.dir === "ko2en");
     els.promptQ.textContent = q.question;
+    els.choices.innerHTML = q.signs
+      .map((t, i) => `<span class="race-choice" style="border-color:${LANE_COLORS[i]};background:${LANE_COLORS[i]}22">${t}</span>`)
+      .join("");
     els.prompt.hidden = false;
     setMsg("저 멀리 네 갈래 길! 맞는 간판 쪽으로 가세요");
   }
@@ -396,12 +401,13 @@ export function setupRace({ onExit, bestStore, resume }) {
         if (hw > ROAD_LIMIT + 0.01) {
           // 네 갈래: 길 네 개가 갈라진다 (사이는 풀밭 = 낭떠러지)
           const k = hw / FORK_LIMIT;
-          const laneHalf = 0.44 * k;
+          const laneHalf = 0.62 * k;
           for (let n = 0; n < LANES; n++) {
             const c = LANE_CENTERS[n] * k;
+            const laneStripe = band ? LANE_COLORS[n] : "#f8fafc";
             quad(prev.at(c - laneHalf), prev.at(c + laneHalf), cur.at(c + laneHalf), cur.at(c - laneHalf), asphalt);
-            quad(prev.at(c - laneHalf), prev.at(c - laneHalf + edge), cur.at(c - laneHalf + edge), cur.at(c - laneHalf), stripe);
-            quad(prev.at(c + laneHalf - edge), prev.at(c + laneHalf), cur.at(c + laneHalf), cur.at(c + laneHalf - edge), stripe);
+            quad(prev.at(c - laneHalf), prev.at(c - laneHalf + edge * 1.6), cur.at(c - laneHalf + edge * 1.6), cur.at(c - laneHalf), laneStripe);
+            quad(prev.at(c + laneHalf - edge * 1.6), prev.at(c + laneHalf), cur.at(c + laneHalf), cur.at(c + laneHalf - edge * 1.6), laneStripe);
           }
         } else {
           quad(prev.at(-hw), prev.at(hw), cur.at(hw), cur.at(-hw), asphalt);
@@ -460,32 +466,30 @@ export function setupRace({ onExit, bestStore, resume }) {
   function drawSigns(q, now) {
     const z = q.z;
     const s = Z_NEAR / (z + Z_NEAR);
-    const fontPx = Math.max(6, Math.min(30, 30 * s * 4));
+    // 멀리서도 읽히게 최소 크기를 둔다
+    const bw = Math.max(38, 190 * s);
+    const bh = Math.max(22, 60 * s);
+    const post = Math.max(10, 50 * s);
+    const fontPx = Math.max(10, Math.min(26, 26 * s * 1.4));
     for (let i = 0; i < LANES; i++) {
       if (g.shatter && g.shatter.lane === i) continue;
       const pt = project(LANE_CENTERS[i], z);
-      const bw = Math.max(20, 150 * s * 2.2);
-      const bh = Math.max(10, 44 * s * 2.2);
-      const top = pt.y - bh - 40 * s * 2.2;
-      // 기둥
+      const top = pt.y - bh - post;
       ctx.fillStyle = "#78350f";
-      ctx.fillRect(pt.x - 3 * s * 2, top + bh, 6 * s * 2, 40 * s * 2.2);
-      // 판
-      ctx.fillStyle = "#fef3c7";
-      ctx.strokeStyle = "#b45309";
-      ctx.lineWidth = Math.max(1, 4 * s * 2);
+      ctx.fillRect(pt.x - Math.max(1.5, 4 * s), top + bh, Math.max(3, 8 * s), post);
+      ctx.fillStyle = "#fffbeb";
+      ctx.strokeStyle = LANE_COLORS[i];
+      ctx.lineWidth = Math.max(2, 6 * s);
       ctx.beginPath();
-      ctx.roundRect(pt.x - bw / 2, top, bw, bh, 6 * s * 2);
+      ctx.roundRect(pt.x - bw / 2, top, bw, bh, Math.max(4, 8 * s));
       ctx.fill();
       ctx.stroke();
-      // 글
       ctx.fillStyle = "#1c1917";
       ctx.font = `800 ${fontPx}px "Helvetica Neue", Arial, "Noto Sans KR", "Malgun Gothic", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(q.signs[i], pt.x, top + bh / 2);
     }
-    // 절벽 경고: 네 갈래 구간의 바깥은 낭떠러지
     void now;
   }
 

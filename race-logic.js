@@ -4,20 +4,22 @@ import { DIFFICULTY, MEANINGS, makeChoices, pickTarget } from "./words.js";
 import { LETTERS, LETTER_ORDER } from "./letters.js";
 
 export const LANES = 4;
-// 도로 좌표: 평소 도로는 [-1, 1], 네 갈래 구간은 [-2, 2]. 차선 중심은 -1.5, -0.5, 0.5, 1.5.
-export const LANE_CENTERS = [-1.5, -0.5, 0.5, 1.5];
+// 도로 좌표: 평소 도로는 [-1, 1], 네 갈래 구간은 [-3, 3] (넓게 벌려 멀리서도 갈라져 보이게).
+// 차선 중심은 -2.25, -0.75, 0.75, 2.25.
+export const FORK_LIMIT = 3; // 네 갈래 구간에서 좌우 한계
+export const LANE_CENTERS = [-2.25, -0.75, 0.75, 2.25];
 export const ROAD_LIMIT = 1; // 평소 도로에서 좌우 한계
-export const FORK_LIMIT = 2; // 네 갈래 구간에서 좌우 한계
+export const LANE_COLORS = ["#f87171", "#fbbf24", "#4ade80", "#60a5fa"]; // 왼쪽부터 빨강·노랑·초록·파랑
 
 export const RACE_LIVES = 3;
-export const BASE_SPEED = 22; // 초당 진행 거리 (도로 단위)
-export const SPEED_PER_CORRECT = 0.6; // 정답마다 빨라지는 양
-export const MAX_SPEED = 40;
-export const STEER_SPEED = 2.6; // 초당 좌우 이동 (도로 단위)
+export const BASE_SPEED = 12; // 초당 진행 거리 (도로 단위)
+export const SPEED_PER_CORRECT = 0.3; // 정답마다 빨라지는 양
+export const MAX_SPEED = 22;
+export const STEER_SPEED = 3.4; // 초당 좌우 이동 (도로 단위)
 
 // 문제 사이 거리와 네 갈래 구간 길이 (도로 단위)
-export const GAP_BEFORE_FORK = 70; // 단어가 뜬 뒤 간판까지 거리
-export const FORK_LENGTH = 30; // 네 갈래 길이 (간판은 그 끝)
+export const GAP_BEFORE_FORK = 55; // 단어가 뜬 뒤 갈라지는 지점까지 거리
+export const FORK_LENGTH = 45; // 네 갈래 길이 (간판은 그 끝)
 export const REST_AFTER = 25; // 통과 후 다음 문제까지
 
 export const SCORE_PER_SIGN = 10;

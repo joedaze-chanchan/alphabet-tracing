@@ -376,3 +376,10 @@ html, body {
 .steer-btn:active { background: rgba(59,130,246,0.7); }
 .steer-btn.left { left: 14px; }
 .steer-btn.right { right: 14px; }
+.race-choices { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+.race-choice {
+  flex: 1; min-width: 0; padding: 6px 4px; border-radius: 10px; border: 3px solid var(--line);
+  font-size: 15px; font-weight: 800; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: "Helvetica Neue", Arial, "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+.race-prompt { min-width: 84%; }
