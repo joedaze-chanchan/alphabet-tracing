@@ -2,7 +2,7 @@
 
 모바일 브라우저에서 혼자 영어를 익히는 교육 웹앱. 빌드 도구 없이 정적 파일만으로 동작한다.
 
-메뉴: 1 알파벳 따라쓰기(A~Z) · 2 단어 따라쓰기(준비 중) · 3 게임하기(외계 비행선 격추)
+메뉴: 1 알파벳 따라쓰기(A~Z) · 2 단어 따라쓰기(준비 중) · 3 게임하기(외계 비행선 격추) · 4 영어 단어 레이싱
 
 배포: https://joedaze-chanchan.github.io/alphabet-tracing/
 
@@ -26,6 +26,8 @@ npm test
 | `app.js` | 화면 전환, 캔버스 렌더링, 시범 애니메이션, 터치 처리 |
 | `progress.js` | 학습 기록·설정·게임 최고 점수 저장 (localStorage) |
 | `game.js`, `pad.js`, `words.js` | 게임 진행·그리기, 쓰기 판, 단어 목록·난이도 |
+| `race.js`, `race-logic.js` | 영어 단어 레이싱 (유사 3D 도로, 네 갈래 간판 문제) |
+| `profiles.js` | 참여자 프로필, 참여자별 저장소, 이어하기 |
 | `profiles.js` | 참여자(캐릭터) 목록, 참여자별 저장소, 이어하기 기록 |
 | `tests/tracer.test.js` | 판정 엔진·획 데이터 테스트 |
 | `audio/*.mp3` | 글자별 발음 (tools/make_audio.py로 생성, edge-tts) |

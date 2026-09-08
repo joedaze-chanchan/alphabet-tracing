@@ -3,6 +3,8 @@ import { LetterTracer } from "./tracer.js";
 import { radiusMarginFor } from "./pad.js";
 import { ProgressStore, SettingsStore, DEFAULT_SETTINGS, BestScoreStore } from "./progress.js";
 import { setupGame } from "./game.js";
+import { setupRace } from "./race.js";
+import { RACE_DIFFICULTY_ORDER } from "./race-logic.js";
 import { ProfileStore, scopedStorage, ResumeStore, AVATARS, MAX_NAME_LENGTH } from "./profiles.js";
 import { DIFFICULTY_ORDER } from "./words.js";
 
@@ -42,6 +44,8 @@ const els = {
   games: $("games"),
   menuAlphaProgress: $("menu-alpha-progress"),
   menuGameBest: $("menu-game-best"),
+  menuRaceBest: $("menu-race-best"),
+  race: $("race"),
   practice: $("practice"),
   grid: $("letter-grid"),
   resetBtn: $("reset-btn"),
@@ -87,6 +91,7 @@ let profile = null;
 let store = null;
 let settingsStore = null;
 let bestStore = null;
+let raceBestStore = null;
 let resumeStore = null;
 let settings = null; // null이면 이 참여자의 첫 실행
 
@@ -96,6 +101,7 @@ function useProfile(p) {
   store = new ProgressStore(scoped);
   settingsStore = new SettingsStore(scoped);
   bestStore = new BestScoreStore(scoped);
+  raceBestStore = new BestScoreStore(scopedStorage(`${p.id}-race`));
   resumeStore = new ResumeStore(scoped);
   settings = settingsStore.load();
 }
@@ -201,7 +207,7 @@ function renderRound() {
 
 // 화면 전환: profile(참여자) | main(대문) | home(알파벳 고르기) | words | games | practice
 function showScreen(name) {
-  for (const key of ["profile", "main", "home", "words", "games", "practice"]) els[key].hidden = key !== name;
+  for (const key of ["profile", "main", "home", "words", "games", "race", "practice"]) els[key].hidden = key !== name;
 }
 
 // ---------- 참여자 화면 ----------
@@ -307,6 +313,8 @@ function renderMain() {
   els.menuAlphaProgress.textContent = done > 0 ? `★ ${done}/${LETTER_ORDER.length}` : "";
   const best = Math.max(...DIFFICULTY_ORDER.map((k) => bestStore.get(k)));
   els.menuGameBest.textContent = best > 0 ? `최고 ${best}점` : "";
+  const raceBest = Math.max(...RACE_DIFFICULTY_ORDER.map((k) => raceBestStore.get(k)));
+  els.menuRaceBest.textContent = raceBest > 0 ? `최고 ${raceBest}점` : "";
 }
 
 function showMain() {
@@ -766,6 +774,12 @@ const game = setupGame({
   bestStore: { get: (l) => bestStore.get(l), update: (l, sc) => bestStore.update(l, sc) },
   resume: { get: () => resumeStore.get("game"), set: (d) => resumeStore.set("game", d), clear: () => resumeStore.clear("game") },
 });
+const race = setupRace({
+  onExit: showMain,
+  bestStore: { get: (l) => raceBestStore.get(l), update: (l, sc) => raceBestStore.update(l, sc) },
+  resume: { get: () => resumeStore.get("race"), set: (d) => resumeStore.set("race", d), clear: () => resumeStore.clear("race") },
+});
+if (location.hostname === "localhost" || location.hostname === "127.0.0.1") window.__race = race; // 로컬 테스트용
 els.profileChip.addEventListener("click", showProfileScreen);
 els.profileSave.addEventListener("click", saveProfileForm);
 els.profileName.addEventListener("keydown", (e) => {
@@ -793,6 +807,9 @@ for (const btn of document.querySelectorAll("[data-go]")) {
     else if (go === "games") {
       showScreen("games");
       game.showMenu();
+    } else if (go === "race") {
+      showScreen("race");
+      race.showMenu();
     } else showScreen(go);
   });
 }

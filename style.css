@@ -355,3 +355,24 @@ html, body {
   background: #fef3c7; border: 2px solid #fcd34d; font-size: 14px; color: #78350f;
 }
 .btn.small { flex: none; padding: 10px 14px; font-size: 14px; border-radius: 12px; }
+
+/* ---------- 레이싱 ---------- */
+#race-play { display: flex; flex-direction: column; height: 100dvh; }
+.road-wrap { position: relative; flex: 1; min-height: 0; }
+#road { width: 100%; height: 100%; display: block; touch-action: none; border-radius: 0 0 20px 20px; background: #38bdf8; }
+.race-prompt {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(255,255,255,0.92); border: 3px solid #f59e0b; border-radius: 18px;
+  padding: 8px 18px; text-align: center; min-width: 60%; box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
+.race-prompt-word { font-size: 34px; font-weight: 900; font-family: "Helvetica Neue", Arial, "Noto Sans KR", "Malgun Gothic", sans-serif; color: var(--blue); letter-spacing: 2px; }
+.race-prompt-word.ko { color: #b45309; letter-spacing: 0; }
+.race-prompt-q { font-size: 14px; color: var(--muted); }
+.steer-btn {
+  position: absolute; bottom: 14px; width: 72px; height: 72px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.8); background: rgba(15,23,42,0.35); color: white; font-size: 28px;
+  touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.steer-btn:active { background: rgba(59,130,246,0.7); }
+.steer-btn.left { left: 14px; }
+.steer-btn.right { right: 14px; }

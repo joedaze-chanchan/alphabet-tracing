@@ -52,8 +52,13 @@
       </button>
       <button class="menu-btn" type="button" data-go="games">
         <span class="menu-num">3</span>
-        <span class="menu-text"><b>게임하기</b><small>배운 글자로 놀아요</small></span>
+        <span class="menu-text"><b>게임하기</b><small>외계 비행선을 글자로 격추해요</small></span>
         <span class="menu-badge" id="menu-game-best"></span>
+      </button>
+      <button class="menu-btn" type="button" data-go="race">
+        <span class="menu-num">4</span>
+        <span class="menu-text"><b>영어 단어 레이싱</b><small>맞는 간판 쪽으로 운전해요</small></span>
+        <span class="menu-badge" id="menu-race-best"></span>
       </button>
     </nav>
     <footer class="home-footer">
@@ -205,6 +210,72 @@
         <div class="done-actions">
           <button id="again-btn" class="btn ghost" type="button">다시 쓰기</button>
           <button id="next-btn" class="btn primary" type="button">다음 글자</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 영어 단어 레이싱 -->
+  <section id="race" class="screen game" hidden>
+    <div id="race-menu">
+      <header class="sub-header">
+        <button id="race-back" class="icon-btn" type="button" aria-label="대문으로">‹</button>
+        <h1>영어 단어 레이싱</h1>
+        <span class="icon-spacer"></span>
+      </header>
+      <div class="game-intro">
+        <div class="game-intro-icon">🏎️</div>
+        <p>달리다 보면 위에 단어가 떠요.<br />저 멀리 네 갈래 길 간판 중 맞는 쪽으로 운전하세요!<br />틀린 길은 낭떠러지예요.</p>
+      </div>
+      <div id="race-resume" class="resume-banner" hidden>
+        <span id="race-resume-text"></span>
+        <button id="race-resume-btn" class="btn primary small" type="button">이어서 하기</button>
+      </div>
+      <div id="race-diff" class="diff-list"></div>
+      <p id="race-best" class="game-best"></p>
+      <div class="game-start-wrap"><button id="race-start" class="btn primary" type="button">출발!</button></div>
+    </div>
+
+    <div id="race-play" hidden>
+      <div class="game-top">
+        <span id="race-score" class="game-score">0점</span>
+        <span id="race-lives" class="game-lives">♥♥♥</span>
+        <button id="race-pause" class="icon-btn small" type="button" aria-label="일시정지">II</button>
+      </div>
+      <div class="road-wrap">
+        <canvas id="road"></canvas>
+        <div id="race-prompt" class="race-prompt" hidden>
+          <div id="race-prompt-word" class="race-prompt-word">PIG</div>
+          <div id="race-prompt-q" class="race-prompt-q">PIG 의 뜻은?</div>
+        </div>
+        <button id="race-left" class="steer-btn left" type="button" aria-label="왼쪽">◀</button>
+        <button id="race-right" class="steer-btn right" type="button" aria-label="오른쪽">▶</button>
+      </div>
+      <p id="race-msg" class="game-msg"></p>
+
+      <div id="race-paused" class="done" hidden>
+        <div class="done-card">
+          <p>잠깐 쉬는 중</p>
+          <div class="done-actions">
+            <button id="ro-quit" class="btn ghost" type="button">그만하기</button>
+            <button id="ro-resume" class="btn primary" type="button">계속하기</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="race-over" class="done" hidden>
+        <div class="done-card">
+          <div class="done-star">🏁</div>
+          <p id="ro-title">경주 끝</p>
+          <div class="go-stats">
+            <div id="ro-score">0점</div>
+            <div id="ro-count">간판 0개 통과</div>
+            <div id="ro-best">최고 점수 0점</div>
+          </div>
+          <div class="done-actions">
+            <button id="ro-menu" class="btn ghost" type="button">난이도 선택</button>
+            <button id="ro-retry" class="btn primary" type="button">다시 하기</button>
+          </div>
         </div>
       </div>
     </div>

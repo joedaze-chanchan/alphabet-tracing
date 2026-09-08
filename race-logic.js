@@ -1,0 +1,63 @@
+// 레이싱 게임의 화면과 무관한 규칙: 문제 만들기, 차선 판정, 속도.
+
+import { DIFFICULTY, MEANINGS, makeChoices, pickTarget } from "./words.js";
+import { LETTERS, LETTER_ORDER } from "./letters.js";
+
+export const LANES = 4;
+// 도로 좌표: 평소 도로는 [-1, 1], 네 갈래 구간은 [-2, 2]. 차선 중심은 -1.5, -0.5, 0.5, 1.5.
+export const LANE_CENTERS = [-1.5, -0.5, 0.5, 1.5];
+export const ROAD_LIMIT = 1; // 평소 도로에서 좌우 한계
+export const FORK_LIMIT = 2; // 네 갈래 구간에서 좌우 한계
+
+export const RACE_LIVES = 3;
+export const BASE_SPEED = 22; // 초당 진행 거리 (도로 단위)
+export const SPEED_PER_CORRECT = 0.6; // 정답마다 빨라지는 양
+export const MAX_SPEED = 40;
+export const STEER_SPEED = 2.6; // 초당 좌우 이동 (도로 단위)
+
+// 문제 사이 거리와 네 갈래 구간 길이 (도로 단위)
+export const GAP_BEFORE_FORK = 70; // 단어가 뜬 뒤 간판까지 거리
+export const FORK_LENGTH = 30; // 네 갈래 길이 (간판은 그 끝)
+export const REST_AFTER = 25; // 통과 후 다음 문제까지
+
+export const SCORE_PER_SIGN = 10;
+
+// 문제 하나: 위에 보이는 글(prompt)과 간판 4개(signs), 정답 차선(answer).
+// dir: "en2ko" (영어 보고 뜻 고르기) | "ko2en" (한글 보고 영어 고르기)
+export function makeQuestion(level, prevWord = null, dir = "en2ko", rand = Math.random) {
+  const en = pickTarget(level, prevWord, rand);
+  const isLetter = en.length === 1;
+  const ko = isLetter ? LETTERS[en].ko : MEANINGS[en];
+  const pool = isLetter
+    ? LETTER_ORDER.map((l) => ({ en: l, ko: LETTERS[l].ko }))
+    : DIFFICULTY[level].words.map((w) => ({ en: w, ko: MEANINGS[w] }));
+  const choices = makeChoices({ en, ko }, pool, LANES - 1, rand);
+  const signs = choices.map((c) => (dir === "en2ko" ? c.ko : c.en));
+  const answer = choices.findIndex((c) => c.en === en);
+  return {
+    en,
+    ko,
+    isLetter,
+    dir,
+    prompt: dir === "en2ko" ? en : ko,
+    question: dir === "en2ko" ? (isLetter ? `${en} 는 어떻게 읽을까요?` : `${en} 의 뜻은?`) : isLetter ? `'${ko}' 는 어느 글자?` : `'${ko}' 는 영어로?`,
+    signs,
+    answer,
+  };
+}
+
+// 차의 도로 좌표(x)로 어느 차선에 있는지. 네 갈래 구간 기준.
+export function laneFromX(x) {
+  const idx = Math.floor((x + FORK_LIMIT) / ((FORK_LIMIT * 2) / LANES));
+  return Math.max(0, Math.min(LANES - 1, idx));
+}
+
+export function speedFor(correctCount) {
+  return Math.min(MAX_SPEED, BASE_SPEED + SPEED_PER_CORRECT * correctCount);
+}
+
+export const RACE_DIFFICULTY = {
+  easy: { key: "easy", label: "쉬움", desc: "글자 하나와 쉬운 단어 · 천천히", speedMul: 0.8 },
+  medium: { key: "medium", label: "보통", desc: "3~4글자 단어 · 보통 속도", speedMul: 1.0 },
+};
+export const RACE_DIFFICULTY_ORDER = ["easy", "medium"];
