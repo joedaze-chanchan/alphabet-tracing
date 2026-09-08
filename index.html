@@ -233,7 +233,19 @@
       </div>
       <div id="race-diff" class="diff-list"></div>
       <p id="race-best" class="game-best"></p>
-      <div class="game-start-wrap"><button id="race-start" class="btn primary" type="button">출발!</button></div>
+      <div class="game-start-wrap">
+        <button id="race-start" class="btn primary" type="button">출발!</button>
+        <button id="race-board-btn" class="btn ghost" type="button">🏆 기록판</button>
+      </div>
+
+      <div id="race-board" class="done" hidden>
+        <div class="done-card board-card">
+          <h2>🏆 기록판</h2>
+          <p class="modal-sub">이 폰으로 게임한 친구들의 점수예요</p>
+          <ol id="race-board-list" class="board-list"></ol>
+          <button id="race-board-close" class="btn primary" type="button">닫기</button>
+        </div>
+      </div>
     </div>
 
     <div id="race-play" hidden>
@@ -271,6 +283,8 @@
           <div class="go-stats">
             <div id="ro-score">0점</div>
             <div id="ro-count">간판 0개 통과</div>
+            <div id="ro-detail">간판 0 · 코인 0 · 주행 0</div>
+            <div id="ro-rank" class="ro-rank"></div>
             <div id="ro-best">최고 점수 0점</div>
           </div>
           <div class="done-actions">

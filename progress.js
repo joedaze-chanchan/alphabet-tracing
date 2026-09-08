@@ -114,3 +114,48 @@ export class BestScoreStore {
     return best;
   }
 }
+
+// 기록판: 이 기기에서 게임한 모든 참여자의 점수 (참여자별 저장소가 아니라 공통 저장소에 둔다)
+export class BoardStore {
+  constructor(key, storage = globalThis.localStorage) {
+    this.key = key;
+    this.storage = storage;
+  }
+
+  load() {
+    try {
+      const raw = this.storage && this.storage.getItem(this.key);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }
+
+  save(list) {
+    try {
+      this.storage && this.storage.setItem(this.key, JSON.stringify(list));
+    } catch {
+      // 무시
+    }
+  }
+
+  // 기록을 더하고 전체 순위(1부터)를 돌려준다. 같은 점수는 먼저 낸 쪽이 위.
+  add(entry) {
+    const list = this.load();
+    const e = { ...entry, at: new Date().toISOString() };
+    list.push(e);
+    list.sort((a, b) => b.score - a.score || a.at.localeCompare(b.at));
+    const rank = list.indexOf(e) + 1;
+    this.save(list.slice(0, 100));
+    return rank;
+  }
+
+  top(n = 10) {
+    return this.load().slice(0, n);
+  }
+
+  clear() {
+    this.save([]);
+  }
+}

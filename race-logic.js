@@ -25,7 +25,14 @@ export const RAMP_LENGTH = 10; // 갈라지기 시작하는 구간
 export const REST_AFTER = 45; // 통과 후 다음 문제까지 (합쳐지는 구간 포함)
 export const CURVE_DRIFT = 0.35; // 커브에서 차가 바깥으로 밀리는 정도 (약하게: 핸들을 조금만 잡으면 된다)
 
-export const SCORE_PER_SIGN = 10;
+export const SCORE_PER_SIGN = 10; // 간판 통과
+export const SCORE_PER_COIN = 5; // 코인
+export const DRIVE_SCORE_PER_UNIT = 0.2; // 달린 거리 1단위마다 (= 5단위에 1점)
+export const COIN_HIT_RADIUS = 0.5; // 코인을 먹는 좌우 거리
+
+export function totalScore(g) {
+  return g.score + g.coinScore + Math.floor(g.drive);
+}
 
 // 문제 하나: 위에 보이는 글(prompt)과 간판 4개(signs), 정답 차선(answer).
 // dir: "en2ko" (영어 보고 뜻 고르기) | "ko2en" (한글 보고 영어 고르기)

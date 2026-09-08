@@ -383,3 +383,16 @@ html, body {
   font-family: "Helvetica Neue", Arial, "Noto Sans KR", "Malgun Gothic", sans-serif;
 }
 .race-prompt { min-width: 84%; }
+.game-start-wrap { display: flex; flex-direction: column; gap: 8px; }
+.board-card h2 { margin: 0; font-size: 22px; }
+.board-list { list-style: none; margin: 0 0 16px; padding: 0; max-height: 50dvh; overflow-y: auto; text-align: left; }
+.board-list li { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--line); font-size: 16px; }
+.board-list li.me { background: #dbeafe; border-radius: 10px; }
+.board-list .rank { width: 28px; font-weight: 800; color: var(--muted); text-align: center; }
+.board-list .rank.gold { color: #d97706; }
+.board-list .av { font-size: 22px; }
+.board-list .nm { flex: 1; font-weight: 700; }
+.board-list .lv { font-size: 12px; color: var(--muted); }
+.board-list .sc { font-weight: 800; }
+.board-empty { color: var(--muted); text-align: center; padding: 14px 0; }
+.ro-rank { font-size: 18px; font-weight: 800; color: #d97706; }

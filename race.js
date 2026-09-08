@@ -15,6 +15,10 @@ import {
   RAMP_LENGTH,
   CURVE_DRIFT,
   SCORE_PER_SIGN,
+  SCORE_PER_COIN,
+  DRIVE_SCORE_PER_UNIT,
+  COIN_HIT_RADIUS,
+  totalScore,
   RACE_DIFFICULTY,
   RACE_DIFFICULTY_ORDER,
   LANE_COLORS,
@@ -22,15 +26,17 @@ import {
   laneFromX,
   speedFor,
 } from "./race-logic.js";
+import * as sfx from "./sfx.js";
 
 const $ = (id) => document.getElementById(id);
 
 const FALL_MS = 1400;
+const CRASH_MS = 550;
 const SHATTER_MS = 700;
 const Z_NEAR = 2.6; // 투영용 카메라 거리 (클수록 원근이 완만해 먼 것이 크게 보인다)
 const DRAW_DEPTH = 130; // 그리는 최대 거리 (도로 단위)
 
-export function setupRace({ onExit, bestStore, resume }) {
+export function setupRace({ onExit, bestStore, resume, board, profile }) {
   const els = {
     menu: $("race-menu"),
     play: $("race-play"),
@@ -57,6 +63,12 @@ export function setupRace({ onExit, bestStore, resume }) {
     overScore: $("ro-score"),
     overCount: $("ro-count"),
     overBest: $("ro-best"),
+    overDetail: $("ro-detail"),
+    overRank: $("ro-rank"),
+    boardBtn: $("race-board-btn"),
+    board: $("race-board"),
+    boardList: $("race-board-list"),
+    boardClose: $("race-board-close"),
     overRetry: $("ro-retry"),
     overMenu: $("ro-menu"),
     paused: $("race-paused"),
@@ -112,7 +124,7 @@ export function setupRace({ onExit, bestStore, resume }) {
 
   function saveState() {
     if (!resume || !g || g.over) return;
-    resume.set({ level, score: g.score, lives: g.lives, correct: g.correct, lastWord: g.lastWord, dir: g.dir });
+    resume.set({ level, score: g.score, coinScore: g.coinScore, drive: Math.floor(g.drive), lives: g.lives, correct: g.correct, lastWord: g.lastWord, dir: g.dir });
   }
 
   function showMenu() {
@@ -145,6 +157,14 @@ export function setupRace({ onExit, bestStore, resume }) {
       stateUntil: 0,
       shatter: null, // { lane, parts: [...] }
       fallX: 0,
+      coinScore: saved ? saved.coinScore || 0 : 0,
+      drive: saved ? saved.drive || 0 : 0,
+      coins: [], // { z, x, taken }
+      nextCoinAt: 20,
+      crashLane: 0,
+      flashUntil: 0,
+      shakeUntil: 0,
+      floats: [], // { x, y, text, until }
       paused: false,
       over: false,
       curve: 0,
@@ -219,14 +239,43 @@ export function setupRace({ onExit, bestStore, resume }) {
     }
     g.curve += (g.curveTarget - g.curve) * Math.min(1, dt * 0.7);
 
+    if (g.state === "crash") {
+      if (now >= g.stateUntil) {
+        g.state = "fall";
+        g.stateUntil = now + FALL_MS;
+        sfx.fall();
+      }
+      return;
+    }
     if (g.state === "fall") {
       if (now >= g.stateUntil) afterFall();
       return;
     }
 
-    // 달리기
+    // 달리기 (주행 점수)
     const advance = speed * dt;
     g.dist += advance;
+    g.drive += advance * DRIVE_SCORE_PER_UNIT;
+    g.floats = g.floats.filter((f) => now < f.until);
+
+    // 코인: 갈림길이 없을 때 길 위에 놓인다. 핸들을 움직여 먹는다.
+    for (const c of g.coins) c.z -= advance;
+    for (const c of g.coins) {
+      if (!c.taken && c.z <= 0.6 && c.z > -1 && Math.abs(c.x - g.x) < COIN_HIT_RADIUS) {
+        c.taken = true;
+        g.coinScore += SCORE_PER_COIN;
+        sfx.coin();
+        const pt = project(c.x, 0.5);
+        g.floats.push({ x: pt.x, y: pt.y - 40, text: `+${SCORE_PER_COIN}`, until: now + 800 });
+      }
+    }
+    g.coins = g.coins.filter((c) => c.z > -2 && !c.taken);
+    if (!g.fork && g.dist >= g.nextCoinAt) {
+      const x = (Math.random() - 0.5) * 1.5;
+      const n = 3;
+      for (let i = 0; i < n; i++) g.coins.push({ z: DRAW_DEPTH - i * 3, x, taken: false });
+      g.nextCoinAt = g.dist + 16 + Math.random() * 18;
+    }
     for (const p of g.props) p.z -= advance;
     g.props = g.props.filter((p) => p.z > -2);
     if (g.dist >= g.nextPropAt) {
@@ -263,6 +312,7 @@ export function setupRace({ onExit, bestStore, resume }) {
       g.q.z -= advance;
       if (g.q.z <= 0) judge(now);
     }
+    renderHud();
   }
 
   // 거리 z 지점의 도로 모양. hw: 반폭, k: 차선 벌어짐 비율(1 = 완전히 갈라짐), laneHalf: 차선 반폭
@@ -293,6 +343,7 @@ export function setupRace({ onExit, bestStore, resume }) {
       g.state = "shatter";
       g.stateUntil = now + SHATTER_MS;
       g.shatter = { lane, seed: Math.random() * 100, start: now };
+      sfx.success();
       setMsg(`정답! ${q.signs[q.answer]} 통과 +${SCORE_PER_SIGN}점`, "ok");
       renderHud();
       g.q = null; // 길(fork)은 합쳐질 때까지 남는다
@@ -300,11 +351,17 @@ export function setupRace({ onExit, bestStore, resume }) {
       els.prompt.hidden = true;
       saveState();
     } else {
-      g.state = "fall";
-      g.stateUntil = now + FALL_MS;
+      // 쾅! 간판에 부딪힌다 → 화면 흔들림·빨간 번쩍임 → 낭떠러지로 추락
+      g.state = "crash";
+      g.stateUntil = now + CRASH_MS;
+      g.shakeUntil = now + CRASH_MS;
+      g.flashUntil = now + 350;
       g.fallX = g.x;
       g.fallLane = lane;
-      setMsg(`앗! ${q.signs[lane]} 은(는) 아니에요. 정답은 ${q.signs[q.answer]}`, "bad");
+      g.crashLane = lane;
+      g.crashAt = now;
+      sfx.crash();
+      setMsg(`쾅! ${q.signs[lane]} 은(는) 아니에요. 정답은 ${q.signs[q.answer]}`, "bad");
     }
   }
 
@@ -329,16 +386,49 @@ export function setupRace({ onExit, bestStore, resume }) {
   function gameOver() {
     g.over = true;
     if (resume) resume.clear();
-    const best = bestStore.update(level, g.score);
-    els.overTitle.textContent = g.score >= best && g.score > 0 ? "최고 기록!" : "경주 끝";
-    els.overScore.textContent = `${g.score}점`;
+    const total = totalScore(g);
+    const best = bestStore.update(level, total);
+    els.overTitle.textContent = total >= best && total > 0 ? "최고 기록!" : "경주 끝";
+    els.overScore.textContent = `${total}점`;
     els.overCount.textContent = `간판 ${g.correct}개 통과`;
+    els.overDetail.textContent = `간판 ${g.score} · 코인 ${g.coinScore} · 주행 ${Math.floor(g.drive)}`;
     els.overBest.textContent = `최고 점수 ${best}점`;
+    let rankText = "";
+    if (board && profile) {
+      const me = profile();
+      if (me && total > 0) {
+        const rank = board.add({ profileId: me.id, name: me.name, avatar: me.avatar, score: total, level });
+        rankText = rank === 1 ? "🏆 기록판 1위!" : `기록판 ${rank}위`;
+      }
+    }
+    els.overRank.textContent = rankText;
     els.over.hidden = false;
   }
 
+  // 기록판
+  function renderBoard() {
+    const me = profile ? profile() : null;
+    const list = board ? board.top(10) : [];
+    els.boardList.innerHTML = "";
+    if (list.length === 0) {
+      els.boardList.innerHTML = `<li class="board-empty">아직 기록이 없어요. 첫 기록을 세워 보세요!</li>`;
+      return;
+    }
+    list.forEach((e, i) => {
+      const li = document.createElement("li");
+      if (me && e.profileId === me.id) li.className = "me";
+      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`;
+      li.innerHTML = `<span class="rank${i < 3 ? " gold" : ""}">${medal}</span><span class="av">${e.avatar || ""}</span><span class="nm">${escapeHtml(e.name || "")}</span><span class="lv">${RACE_DIFFICULTY[e.level] ? RACE_DIFFICULTY[e.level].label : ""}</span><span class="sc">${e.score}점</span>`;
+      els.boardList.appendChild(li);
+    });
+  }
+
+  function escapeHtml(t) {
+    return String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  }
+
   function renderHud() {
-    els.score.textContent = `${g.score}점`;
+    els.score.textContent = `${totalScore(g)}점`;
     els.lives.textContent = "♥".repeat(g.lives) + "♡".repeat(Math.max(0, RACE_LIVES - g.lives));
   }
 
@@ -371,6 +461,10 @@ export function setupRace({ onExit, bestStore, resume }) {
   function draw(now) {
     const { w, h, dpr } = size();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (now < g.shakeUntil) {
+      const k = (g.shakeUntil - now) / CRASH_MS;
+      ctx.translate((Math.random() - 0.5) * 22 * k, (Math.random() - 0.5) * 22 * k);
+    }
     const horizon = h * 0.4;
 
     // 하늘
@@ -463,12 +557,114 @@ export function setupRace({ onExit, bestStore, resume }) {
       drawProp(p, pt);
     }
 
+    // 코인
+    for (const c of [...g.coins].sort((a, b) => b.z - a.z)) {
+      if (c.z < 0.2 || c.z > DRAW_DEPTH) continue;
+      drawCoin(c, now);
+    }
+
     // 간판 (네 갈래 끝)
     if (g.q && g.q.z > 0.2 && g.q.z < DRAW_DEPTH) drawSigns(g.q, now);
+    if (g.state === "crash" && g.q) drawCrashSign(g.q, now);
     if (g.shatter) drawShatter(g.shatter, now);
 
     // 차
     drawCar(now);
+
+    // 떠오르는 점수
+    for (const f of g.floats) {
+      const t = 1 - (f.until - now) / 800;
+      ctx.save();
+      ctx.globalAlpha = 1 - t;
+      ctx.font = '900 22px "Helvetica Neue", Arial, sans-serif';
+      ctx.textAlign = "center";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#78350f";
+      ctx.fillStyle = "#fde047";
+      ctx.strokeText(f.text, f.x, f.y - t * 30);
+      ctx.fillText(f.text, f.x, f.y - t * 30);
+      ctx.restore();
+    }
+
+    // 충돌 번쩍임과 쾅!
+    if (now < g.flashUntil) {
+      const a = (g.flashUntil - now) / 350;
+      ctx.fillStyle = `rgba(239,68,68,${0.55 * a})`;
+      ctx.fillRect(-30, -30, w + 60, h + 60);
+    }
+    if (g.state === "crash") {
+      const t = Math.min(1, (now - g.crashAt) / CRASH_MS);
+      ctx.save();
+      ctx.translate(w / 2, h * 0.55);
+      ctx.rotate(-0.15 + Math.sin(now / 40) * 0.05);
+      const sc = 1 + Math.sin(t * Math.PI) * 0.35;
+      ctx.scale(sc, sc);
+      ctx.font = '900 64px "Noto Sans KR", "Malgun Gothic", "Helvetica Neue", sans-serif';
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = "#7f1d1d";
+      ctx.fillStyle = "#fde047";
+      ctx.strokeText("쾅!!", 0, 0);
+      ctx.fillText("쾅!!", 0, 0);
+      ctx.restore();
+    }
+  }
+
+  function drawCoin(c, now) {
+    const pt = project(c.x, c.z);
+    const r = Math.max(3, 16 * pt.s * 2.2);
+    const spin = Math.abs(Math.cos(now / 220 + c.z));
+    ctx.save();
+    ctx.translate(pt.x, pt.y - r * 1.2);
+    ctx.fillStyle = "#facc15";
+    ctx.strokeStyle = "#a16207";
+    ctx.lineWidth = Math.max(1, r * 0.15);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * Math.max(0.2, spin), r, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    if (spin > 0.5) {
+      ctx.fillStyle = "#a16207";
+      ctx.font = `800 ${Math.max(6, r * 1.1)}px "Helvetica Neue", Arial, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("★", 0, 1);
+    }
+    ctx.restore();
+  }
+
+  // 부딪힌 간판: 크게 흔들리고 파편이 튄다 (부서지지는 않는다)
+  function drawCrashSign(q, now) {
+    const t = Math.min(1, (now - g.crashAt) / CRASH_MS);
+    const pt = project(LANE_CENTERS[g.crashLane], 0.6);
+    ctx.save();
+    ctx.translate(pt.x, pt.y - 90);
+    ctx.rotate(Math.sin(now / 30) * 0.25 * (1 - t));
+    ctx.fillStyle = "#fffbeb";
+    ctx.strokeStyle = LANE_COLORS[g.crashLane];
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.roundRect(-95, -30, 190, 60, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#1c1917";
+    ctx.font = '800 26px "Helvetica Neue", Arial, "Noto Sans KR", "Malgun Gothic", sans-serif';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(q.signs[g.crashLane], 0, 0);
+    ctx.restore();
+    // 불꽃 파편
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const d = 20 + t * 90;
+      ctx.fillStyle = i % 2 ? "#f97316" : "#fde047";
+      ctx.globalAlpha = 1 - t;
+      ctx.beginPath();
+      ctx.arc(pt.x + Math.cos(a) * d, pt.y - 60 + Math.sin(a) * d + t * t * 60, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   }
 
   function drawProp(p, pt) {
@@ -564,6 +760,11 @@ export function setupRace({ onExit, bestStore, resume }) {
     let scale = 1;
     let rot = g.tilt;
     let alpha = 1;
+    if (g.state === "crash") {
+      const t = Math.min(1, (now - g.crashAt) / CRASH_MS);
+      cy += t * 30;
+      rot = (Math.random() - 0.5) * 0.15;
+    }
     if (g.state === "fall") {
       const t = Math.min(1, (g.stateUntil - now) / FALL_MS);
       const k = 1 - t; // 0 → 1 진행
@@ -678,6 +879,7 @@ export function setupRace({ onExit, bestStore, resume }) {
   els.canvas.addEventListener("pointerdown", (e) => {
     if (!g || g.paused || g.over) return;
     e.preventDefault();
+    sfx.unlock();
     pointers.set(e.pointerId, sideOf(e));
     try {
       els.canvas.setPointerCapture(e.pointerId);
@@ -745,8 +947,19 @@ export function setupRace({ onExit, bestStore, resume }) {
     g = null;
     onExit();
   });
-  els.start.addEventListener("click", () => newGame());
+  els.start.addEventListener("click", () => {
+    sfx.unlock();
+    newGame();
+  });
+  els.boardBtn.addEventListener("click", () => {
+    renderBoard();
+    els.board.hidden = false;
+  });
+  els.boardClose.addEventListener("click", () => {
+    els.board.hidden = true;
+  });
   els.resumeBannerBtn.addEventListener("click", () => {
+    sfx.unlock();
     const saved = resume ? resume.get() : null;
     if (saved) newGame(saved);
   });
@@ -756,7 +969,10 @@ export function setupRace({ onExit, bestStore, resume }) {
     saveState();
     showMenu();
   });
-  els.overRetry.addEventListener("click", () => newGame());
+  els.overRetry.addEventListener("click", () => {
+    sfx.unlock();
+    newGame();
+  });
   els.overMenu.addEventListener("click", showMenu);
   window.addEventListener("resize", () => {
     if (g) resize();

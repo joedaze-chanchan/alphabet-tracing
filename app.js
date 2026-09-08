@@ -1,7 +1,7 @@
 import { LETTERS, LETTER_ORDER, STROKE_WIDTH, hasJoins } from "./letters.js";
 import { LetterTracer } from "./tracer.js";
 import { radiusMarginFor } from "./pad.js";
-import { ProgressStore, SettingsStore, DEFAULT_SETTINGS, BestScoreStore } from "./progress.js";
+import { ProgressStore, SettingsStore, DEFAULT_SETTINGS, BestScoreStore, BoardStore } from "./progress.js";
 import { setupGame } from "./game.js";
 import { setupRace } from "./race.js";
 import { RACE_DIFFICULTY_ORDER } from "./race-logic.js";
@@ -774,10 +774,13 @@ const game = setupGame({
   bestStore: { get: (l) => bestStore.get(l), update: (l, sc) => bestStore.update(l, sc) },
   resume: { get: () => resumeStore.get("game"), set: (d) => resumeStore.set("game", d), clear: () => resumeStore.clear("game") },
 });
+const raceBoard = new BoardStore("abc-race-board"); // 참여자 공통 기록판
 const race = setupRace({
   onExit: showMain,
   bestStore: { get: (l) => raceBestStore.get(l), update: (l, sc) => raceBestStore.update(l, sc) },
   resume: { get: () => resumeStore.get("race"), set: (d) => resumeStore.set("race", d), clear: () => resumeStore.clear("race") },
+  board: raceBoard,
+  profile: () => profile,
 });
 if (location.hostname === "localhost" || location.hostname === "127.0.0.1") window.__race = race; // 로컬 테스트용
 els.profileChip.addEventListener("click", showProfileScreen);
